@@ -10,7 +10,7 @@ import os
 import numpy as np
 
 ###
-#TODO VEMOS QUE ONDA ESTO
+#TODO VEMOS QUE ONDA ESTOoo
 #MENSAJE DE BIENVENIDA, EXPLICAR QUE LOS NOMBRES DE LOS REPORTES TIENEN QUE ESTAR EN MAYUSCULAS Y ESO
 
 #Esto me permite convertir la wea a .xlsx. lo saque de StackOverflow (NO CONSERVA H-LINKS)
