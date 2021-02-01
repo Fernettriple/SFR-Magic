@@ -41,7 +41,6 @@ from datetime import datetime as Noseporque
 wb = openpyxl.load_workbook('REPORT.xlsx')    
 ws=wb['Report']
 
-
 #Extraigo el numero del sitio asi despues hago magia
 Numero_de_sitio=ws["M2"].value
 Nombre_de_archivo=str(Numero_de_sitio)+' COV Site File Review.xlsx'
@@ -102,7 +101,8 @@ Nombre_de_archivo=str(Numero_de_sitio)+' COV Site File Review.xlsx'
 filename=os.getcwd()+'\\'+Nombre_de_archivo #consigo la direccion del archivo. con el os.getcwd() obtengo la dir del directorio donde esta el programa
 
 SFR= pd.read_excel(filename, sheet_name='Site',header=0)
-
+wb = openpyxl.load_workbook(Nombre_de_archivo)    
+ws=wb['Site']
 #Pongo las dates en formato datetime
 def Str_to_date(str):
     try:
@@ -145,14 +145,17 @@ class Sitio:
         atribute=atribute.replace(' ','_') #depuro los posibles caracteres q puedan joder al ponerle el atributo al objeto. TODO usar regex
         atribute=atribute.replace('/','_')
         if hasattr(Sitio,atribute):
-            info_to_add=getattr(Sitio,atribute).append(info_to_add) #Siexiste el atributo, lo appendeo. Ya que siempre es una lista
+            New_info=getattr(Sitio,atribute)
+            New_info.append(info_to_add) #Siexiste el atributo, lo appendeo. Ya que siempre es una lista
         else:
-            info_to_add=[info_to_add] #else, lo hago una lista.
-        setattr(Sitio,atribute,info_to_add)
+            New_info=[info_to_add] #else, lo hago una lista.
+        setattr(Sitio,atribute,New_info)
         
     class Investigador:
         pass
 
+#Agarro del Visit report y agrego al Sitio cada una de las visitas, usando como nombre de atributo el tipo de visita, y el atributo es la fecha..
+#El atributo es una lista, y si hay mas de una visita del mismo tipo, lo appendea
 Visit_Report= pd.read_excel( os.getcwd()+"\\VISIT REPORT.xlsx",header=0)
 for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems():
     if  type(Visit_Report['Visit End'][index_Visit_Report])==datetime.datetime:
@@ -161,13 +164,36 @@ for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems(
         Visit_Report.loc[index_Visit_Report,'Visit End']=Str_to_date(Visit_Report['Visit End'][index_Visit_Report])
     Sitio.add_atribute(Visit_Report['Visit Type'][index_Visit_Report], Visit_Report['Visit End'][index_Visit_Report])
 
+#Ahora parseo por el DF del excel
+def add_to_excel(Row_num,Present_in_eTMF,Comments,Action_needed,*Action):
+    '''Esta Funcion sirve para agregar los comentarios al Excel. '''
+    Row_num+=2 #para la df el primer index es 0, pero el excel arranca en 2
+    if Present_in_eTMF=='N':
+        Row_num=ws.max_row+1 #Si no esta presente, mando el comentario al fondo
+    ws.cell(Row_num,11).value=Present_in_eTMF
+    ws.cell(Row_num,12).value=Comments
+    ws.cell(Row_num,13).value=Action_needed
+    if Action_needed=='Y':
+        ws.cell(Row_num,14).value=Action[0]
 
-    # if Visit_Report.loc[index_Visit_Report,'Visit Type']=='Site Visit Initiation':
-    #     print('yea')
+#Esto es para 05.04.03
+for Visit_Report in Sitio.Site_Visit_Interim:
+    Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
+    for index, row in SFR['Ref Model ID'].iteritems():
+        if (SFR.loc[index,'Ref Model ID']=='05.04.03' and
+            SFR.loc[index,'Document date']== Visit_Report and 
+            SFR.loc[index,'Ref Model Subtype'] not in Letter_Types):
+            add_to_excel(index,'Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Visit_Report} visit",'Y','Errase Duplicated')
+            continue #Si tengo un duplicado, no va a estar en letter types xq ya fue popeado. 
+        if (SFR.loc[index,'Ref Model ID']=='05.04.03' and
+            SFR.loc[index,'Document date']== Visit_Report):
+                Letter_Types.remove(SFR.loc[index,'Ref Model Subtype'])
+                SFR.loc[index,'Ref Model ID']=np.nan
+                add_to_excel(index,'Y',f"{(SFR.loc[index,'Ref Model Subtype'])} from {Visit_Report} visit",'N')
+    if Letter_Types!=[]:
+        add_to_excel(0,'N',f'{Letter_Types} missing from {Visit_Report} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
 
-
-
-
+#TODO, HACER PARA EL RESTO. TAL VEZ ENCONTRA RUNA MANERA DE TRANSFORMAR lo que hice en una funcion y  repetirlo para cada tipo de visita?
 
 #los temp/CALIBRATION logs lo puedo checkear desde los reporte de IP vs IP RETURNED
 #si es local o central tmb lo puedo sacar del log 
