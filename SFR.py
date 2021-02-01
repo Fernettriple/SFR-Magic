@@ -176,6 +176,7 @@ def add_to_excel(Row_num,Present_in_eTMF,Comments,Action_needed,*Action):
     if Action_needed=='Y':
         ws.cell(Row_num,14).value=Action[0]
 
+
 #Esto es para 05.04.03
 for Visit_Report in Sitio.Site_Visit_Interim:
     Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
