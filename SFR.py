@@ -142,6 +142,7 @@ if 'VISIT REPORT.csv' in os.listdir('.') and 'VISIT REPORT.xlsx' not in os.listd
     
 class Sitio:
     def add_atribute(atribute, info_to_add):
+        '''Esta funcion sirve para poder crear un atribute y asignarle un value llamado "info_to_add. Esto es especialmente util si estoy agregando cosas en un for loop'''
         atribute=atribute.replace(' ','_') #depuro los posibles caracteres q puedan joder al ponerle el atributo al objeto. TODO usar regex
         atribute=atribute.replace('/','_')
         if hasattr(Sitio,atribute):
@@ -177,22 +178,25 @@ def add_to_excel(Row_num,Present_in_eTMF,Comments,Action_needed,*Action):
         ws.cell(Row_num,14).value=Action[0]
 
 #Esto es para 05.04.03
-for Visit_Report in Sitio.Site_Visit_Interim:
+def add_visit_from_report(Ref_ID, Generic_Variable_in_the_loop):
     Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
     for index, row in SFR['Ref Model ID'].iteritems():
-        if (SFR.loc[index,'Ref Model ID']=='05.04.03' and
-            SFR.loc[index,'Document date']== Visit_Report and 
+        if (SFR.loc[index,'Ref Model ID']==Ref_ID and
+            SFR.loc[index,'Document date']== Generic_Variable_in_the_loop and 
             SFR.loc[index,'Ref Model Subtype'] not in Letter_Types):
-            add_to_excel(index,'Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Visit_Report} visit",'Y','Errase Duplicated')
+            add_to_excel(index,'Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'Y','Errase Duplicated')
             continue #Si tengo un duplicado, no va a estar en letter types xq ya fue popeado. 
-        if (SFR.loc[index,'Ref Model ID']=='05.04.03' and
-            SFR.loc[index,'Document date']== Visit_Report):
+        if (SFR.loc[index,'Ref Model ID']==Ref_ID and
+            SFR.loc[index,'Document date']== Generic_Variable_in_the_loop):
                 Letter_Types.remove(SFR.loc[index,'Ref Model Subtype'])
                 SFR.loc[index,'Ref Model ID']=np.nan
-                add_to_excel(index,'Y',f"{(SFR.loc[index,'Ref Model Subtype'])} from {Visit_Report} visit",'N')
+                add_to_excel(index,'Y',f"{(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'N')
     if Letter_Types!=[]:
-        add_to_excel(0,'N',f'{Letter_Types} missing from {Visit_Report} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+        add_to_excel(0,'N',f'{Letter_Types} missing from {Generic_Variable_in_the_loop} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
 
+        
+for Visit_Report in Sitio.Site_Visit_Interim:
+    add_visit_from_report('05.04.03', Visit_Report)
 #TODO, HACER PARA EL RESTO. TAL VEZ ENCONTRA RUNA MANERA DE TRANSFORMAR lo que hice en una funcion y  repetirlo para cada tipo de visita?
 
 #los temp/CALIBRATION logs lo puedo checkear desde los reporte de IP vs IP RETURNED
