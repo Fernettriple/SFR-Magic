@@ -10,7 +10,7 @@ import os
 import numpy as np
 import csv
 from datetime import datetime as Noseporque
-
+import re
 
 ###
 #TODO VER
@@ -235,10 +235,27 @@ if IP_SHIPMENT_Site.empty: #Puede que no haya tenido IP el sitio
 else:
     IP_Shipping_Dates=pd.to_datetime(IP_SHIPMENT_Site['Received Date'])
 
-#Guardo todos los envios y el primero, porque me sirve para los IP temperature logs
-    
+#Guardo todos los envios y el primero, porque me sirve para los IP temperature logs    
     Sitio.IP_Recieved=list(IP_SHIPMENT_Site['Shipment Number'])
     Sitio.First_IP=min(IP_Shipping_Dates).strftime('%d-%b-%Y')
+
+#Ahora busco en SFR si estan los IP shipments
+
+SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
+for shipment in Sitio.IP_Recieved:
+    Shipment_types=['Packing List','Confirmation','Acknowledgement']
+    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+    for documents in Shipment_types:
+        if Bacon.index[Bacon['Document Name'].str.contains(documents)].empty==False:
+            spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
+            Shipment_types.remove(documents)
+            if documents=='Acknowledgement':
+                add_to_excel(spam[0],'Y',f"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
+            else:
+                add_to_excel(spam[0],'Y',f"{documents} for {shipment} shipping",'N')
+    if Shipment_types!=[]:
+        add_to_excel(0,'N',f'{Shipment_types} missing from {shipment} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+
 
 #Extraigo informacion de IP RETURN y lo meto en el Sitio
 IP_RETURN= pd.read_excel('IP RETURN.xlsx', sheet_name='Sheet',header=2)
@@ -252,7 +269,23 @@ else:
 
 #Guardo los IP return
     Sitio.IP_Returned=list(IP_RETURN_Site['Return Shipment Number'])
-   
+
+SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.10']
+for shipment in Sitio.IP_Returned:    
+    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+    if Bacon.index[Bacon['Document Name'].str.contains(str(shipment))].empty==False:
+        spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment))]
+        add_to_excel(spam[0],'Y',f"IP Return documentation for {shipment} shipping",'N')
+    else:
+        add_to_excel(0,'N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
+
+
+
+
+
+
+
+
 #si es local o central tmb lo puedo sacar del log 
 
 
