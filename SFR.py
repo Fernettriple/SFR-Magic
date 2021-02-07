@@ -240,7 +240,6 @@ else:
     Sitio.First_IP=min(IP_Shipping_Dates).strftime('%d-%b-%Y')
 
 #Ahora busco en SFR si estan los IP shipments
-
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
 for shipment in Sitio.IP_Recieved:
     Shipment_types=['Packing List','Confirmation','Acknowledgement']
@@ -279,12 +278,9 @@ for shipment in Sitio.IP_Returned:
     else:
         add_to_excel(0,'N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
 
+#Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
 
-
-
-
-
-
+add_to_excel(0,'N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
 
 #si es local o central tmb lo puedo sacar del log 
 
@@ -292,52 +288,7 @@ for shipment in Sitio.IP_Returned:
 
 
 
-# ##IP SHIPMENTS/PL AND RETURNS
 
-
-# #IP Shipment confirmation
-# filename=os.getcwd()+"\\IP SHIPMENT.xlsx" #consigo la direccion del archivo. con el os.getcwd() obtengo la dir del directorio donde esta el programa
-# df= pd.read_excel(filename, sheet_name='Sheet',header=2) #Importo el excel en pandas. Header=2 porq ahi estan los encabezados
-# for index,row in df['Ship to Site Number'].iteritems(): #checkeo cada row de la columna "ship to site numbers"
-#     if row!=Numero_de_sitio:
-#         df.loc[index,'Ship to Site Number']=np.nan #Si la row no es del sitio q me interesa, le mando np.nan
-#     if df.loc[index,'Shipment Status']!='Received': 
-#         df.loc[index,'Shipment Status']=np.nan #Si el shipment no fue recibido, le mando np.nan
-       
-# df.dropna(subset=['Ship to Site Number','Shipment Status'],inplace=True) #ahora, dropeo todos los np.nan, asi me quedo solo con los shipments recibidos y de mi sitio
-
-# #Esto... no me acuerdo porq pero messirve. Creo una DF solo de la info que me importa con las columnas q me importan
-# cols=list(df.columns) 
-# IP_SHIPMENT=df[[cols[0]]+[cols[8]]+[cols[9]]] #0= Shipment Number, 8 = Shipped Date, 9= Received Date
-
-# #IP Return
-# filename=os.getcwd()+"\\IP RETURN.xlsx"#consigo la direccion del archivo. con el os.getcwd() obtengo la dir del directorio donde esta el programa
-# df= pd.read_excel(filename, sheet_name='Sheet',header=2)#Importo el excel en pandas. Header=2 porq ahi estan los encabezados
-# for index,row in df['Ship from Site Number'].iteritems(): #checkeo cada row de la columna "ship to site numbers"
-#     if row!=Numero_de_sitio:
-#         df.loc[index,'Ship from Site Number']=np.nan #Si la row no es del sitio q me interesa, le mando np.nan
-#     if df.loc[index,'Return Shipment Status']!='Received':
-#         df.loc[index,'Return Shipment Status']=np.nan #Si el shipment no fue recibido, le mando np.nan
-       
-# df.dropna(subset=['Ship from Site Number','Return Shipment Status'],inplace=True)#ahora, dropeo todos los np.nan, asi me quedo solo con los shipments recibidos y de mi sitio
-
-# #Esto... no me acuerdo porq pero messirve. Creo una DF solo de la info que me importa con las columnas q me importan
-# cols=list(df.columns)
-# IP_RETURN=df[[cols[0]]+[cols[7]]+[cols[8]]]#0= Return Shipment Number, 7=Creation Date ,  8 = Shipped By
-
-# #Una vez que tengo esto, reviso en el SFR si tengo los PL, Shipment confirmation y Return shipment
-
-# for index_IP, row_IP in IP_SHIPMENT.iteritems(): #Checkeo todos los Shipment number que obtuve del IP SHIPMENT.xlsx
-#     for index,row in SFR.iteritems(): #checkeo cada columnma y si estoy en el nivel 06.01.04
-#         if SFR.loc[index,'Ref Model ID']=='06.01.04':
-#             if IP_SHIPMENT.loc[index_IP,['Shipment Number']] in SFR.loc[index,'Document Name']: #Si el numero de envio esta en la string 
-#                 #TODO
-#                 if 'Packing List' in SFR.loc[index,'Document Name']:
-#                     SFR.loc[index,'Is the document present in the file structure? (Y/N)']='Y'
-#                     SFR.loc[index,'Is the document present in the file structure? (Y/N)']='Y'
-#                 #Revisar todo esto. estoy laburando en una df pero despues tengo q modificar el excel. me parece q es al pedo esto y tenog q contrar una manera
-#                 # de directamente modificar el excel. tal vez el index me sirve para ir directamente a la row que necesito modificar sin tener q ir
-#                 # checkeando todo?
 
 
 
