@@ -152,7 +152,14 @@ class Sitio:
         else:
             New_info=[info_to_add] #else, lo hago una lista.
         setattr(Sitio,atribute,New_info)
-        
+    #Informacion del Sitio
+    Site_Number=Numero_de_sitio
+
+    #IP Shipment information
+    First_IP=''    
+    IP_Recieved=[]
+    IP_Returned=[]
+
     class Investigador:
         pass
 
@@ -206,15 +213,46 @@ def check_and_add(code, atribute):
         for Visit_Report in getattr(Sitio,atribute):
             add_visit_from_report(code, Visit_Report)
 
-#TODO Agregar todo los tipos de visita
+#TODO Agregar todo los tipos de visita (booster por ejemplo)
 
 check_and_add('05.01.04','Site_Visit_Selection')
 check_and_add('05.03.01','Site_Visit_Initiation')            
-check_and_add('05.04.03','Site_Visit_Interim')      
+check_and_add('05.04.03','Site_Visit_Interim')  
+check_and_add('05.04.08','Site_Visit_Closeout' )
 check_and_add('05.04.08','Telephone_Closeout' )
 
 
-#los temp/CALIBRATION logs lo puedo checkear desde los reporte de IP vs IP RETURNED
+#Extraigo informacion de IP SHIPMENT y lo meto en el Sitio
+IP_SHIPMENT= pd.read_excel('IP SHIPMENT.xlsx', sheet_name='Sheet',header=2)
+
+#Reduzco a mi sitio y a los envios recibidos
+IP_SHIPMENT=IP_SHIPMENT.loc[IP_SHIPMENT['Shipment Status']=='Received']
+IP_SHIPMENT_Site=IP_SHIPMENT.loc[IP_SHIPMENT['Ship to Site Number']==int(Sitio.Site_Number)]
+
+if IP_SHIPMENT_Site.empty: #Puede que no haya tenido IP el sitio
+    Sitio.IP_Recieved=None
+    Sitio.First_IP=None
+else:
+    IP_Shipping_Dates=pd.to_datetime(IP_SHIPMENT_Site['Received Date'])
+
+#Guardo todos los envios y el primero, porque me sirve para los IP temperature logs
+    
+    Sitio.IP_Recieved=list(IP_SHIPMENT_Site['Shipment Number'])
+    Sitio.First_IP=min(IP_Shipping_Dates).strftime('%d-%b-%Y')
+
+#Extraigo informacion de IP RETURN y lo meto en el Sitio
+IP_RETURN= pd.read_excel('IP RETURN.xlsx', sheet_name='Sheet',header=2)
+IP_RETURN=IP_RETURN.loc[IP_RETURN['Return Shipment Status']=='Received']
+IP_RETURN_Site=IP_RETURN.loc[IP_RETURN['Ship from Site Number']==int(Sitio.Site_Number)]
+
+if IP_RETURN_Site.empty: #Puede que no haya devuelto IP el sitio
+    Sitio.IP_Returned=None  
+else:
+    IP_Return_Dates=pd.to_datetime(IP_RETURN_Site['Date Received'])
+
+#Guardo los IP return
+    Sitio.IP_Returned=list(IP_RETURN_Site['Return Shipment Number'])
+   
 #si es local o central tmb lo puedo sacar del log 
 
 
