@@ -281,7 +281,7 @@ for shipment in Sitio.IP_Returned:
 #Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
 
 add_to_excel(0,'N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
-
+add_to_excel(0,'N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
 #si es local o central tmb lo puedo sacar del log 
 
 
