@@ -113,33 +113,7 @@ for index, row in SFR['Document date'].iteritems():
     SFR.loc[index,'Document date']=Str_to_date(SFR.loc[index,'Document date'])
     SFR.loc[index,'Expiration date']=Str_to_date(SFR.loc[index,'Expiration date'])
 
-
-# if 'CONTACT REPORT.csv' in os.listdir('.'):
-#     fname = os.getcwd()+"\\CONTACT REPORT.csv"
-#     excel = win32.gencache.EnsureDispatch('Excel.Application')
-#     wb = excel.Workbooks.Open(fname)
-#     fname=fname.split('.')[0]+".xlsx"
-#     wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-#     wb.Close()                               #FileFormat = 56 is for .xls extension
-#     excel.Application.Quit()
-#     Contact_Report= pd.read_excel(fname,header=0)
-
-#Escanear nombres en CV y SubI de los CVs para predecir el study team. Luego, pedir input del DOA y predecir q se tiene q pedir en base a lo que hay. 
-# se podra usar un CTMS report?
-
-#Buscar ultima FDA1572 y si es de hace dos años, preguntar si es la ultima.
-
-#usando el reporte de visitas, checkear que estan todas las cfm, fup, svr
-
-if 'VISIT REPORT.csv' in os.listdir('.') and 'VISIT REPORT.xlsx' not in os.listdir('.'):
-    fname = os.getcwd()+"\\VISIT REPORT.csv"
-    excel = win32.gencache.EnsureDispatch('Excel.Application')
-    wb = excel.Workbooks.Open(fname)
-    fname=fname.split('.')[0]+".xlsx"
-    wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-    wb.Close()                               #FileFormat = 56 is for .xls extension
-    excel.Application.Quit()
-    
+#Creo este objeto para poder almacenar la info
 class Sitio:
     def add_atribute(atribute, info_to_add):
         '''Esta funcion sirve para poder crear un atribute y asignarle un value llamado "info_to_add. Esto es especialmente util si estoy agregando cosas en un for loop'''
@@ -162,6 +136,37 @@ class Sitio:
 
     class Investigador:
         pass
+
+#TODO
+#Programar toda la configuracion del protocolo en un archivo json. Asi vale para varios protocolos (onda, fecha de PAs)
+
+
+
+#TODO Predecir CVs, Med Lics, y GCPs
+#usar un reporte de CTMS para predecir el study team (PIs, SubIs).
+if 'CONTACT REPORT.csv' in os.listdir('.'):
+    fname = os.getcwd()+"\\CONTACT REPORT.csv"
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    wb = excel.Workbooks.Open(fname)
+    fname=fname.split('.')[0]+".xlsx"
+    wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
+    wb.Close()                               #FileFormat = 56 is for .xls extension
+    excel.Application.Quit()
+    Contact_Report= pd.read_excel(fname,header=0)
+
+
+#TODO Buscar ultima FDA1572 y si es de hace dos años, preguntar si es la ultima.
+
+#usando el reporte de visitas, checkear que estan todas las cfm, fup, svr
+if 'VISIT REPORT.csv' in os.listdir('.') and 'VISIT REPORT.xlsx' not in os.listdir('.'):
+    fname = os.getcwd()+"\\VISIT REPORT.csv"
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    wb = excel.Workbooks.Open(fname)
+    fname=fname.split('.')[0]+".xlsx"
+    wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
+    wb.Close()                               #FileFormat = 56 is for .xls extension
+    excel.Application.Quit()
+    
 
 #Agarro del Visit report y agrego al Sitio cada una de las visitas, usando como nombre de atributo el tipo de visita, y el atributo es la fecha..
 #El atributo es una lista, y si hay mas de una visita del mismo tipo, lo appendea
@@ -187,7 +192,6 @@ def add_to_excel(Row_num,Present_in_eTMF,Comments,Action_needed,*Action):
         ws.cell(Row_num,14).value=Action[0]
     wb.save(Nombre_de_archivo)
 
-#Esto es para 05.04.03
 def add_visit_from_report(Ref_ID, Generic_Variable_in_the_loop):
     '''Esta funcion checkea todas las visitas del reporte de visitas y se fija si estan en el archivo de SFR. Si estan, escribe en comments 
     diciendo que es la carta, si no esta agrega al final una linea con la info de que es lo que falta'''
@@ -282,7 +286,12 @@ for shipment in Sitio.IP_Returned:
 
 add_to_excel(0,'N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
 add_to_excel(0,'N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
-#si es local o central tmb lo puedo sacar del log 
+
+
+#si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
+
+#TODO PAs y IBs. Usando la visita de iniciacion puedo predecir que PAs/IBs tendria que tener. Puedo usar lo mismo para los irb approvals.
+#TODO encontrar manera que se me habia ocurrido pero ahora no de saber si el sitio es local o central lab/irb. y pedir todolo necesario, incluyendo membership list 
 
 
 
