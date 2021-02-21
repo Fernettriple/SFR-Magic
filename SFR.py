@@ -11,6 +11,7 @@ import numpy as np
 import csv
 from datetime import datetime as Noseporque
 import re
+pd.options.mode.chained_assignment = None  # default='warn'
 
 ###
 #TODO VER
@@ -209,6 +210,35 @@ for nombres,apellidos,funcion,inicio,fin in zip(Names,Last_names,Roles,Starting_
 Sitio.Site_members=Site_Members
 
 #Una vez que tengo la informacion guardada la uso para que haga cosas
+
+from datetime import datetime
+pd.options.mode.chained_assignment = None  # default='warn'
+
+SFR= pd.read_excel(filename, sheet_name='Site',header=0)
+SFR['Document date']=pd.to_datetime(SFR['Document date'])
+SFR['Expiration date']=pd.to_datetime(SFR['Expiration date'])
+
+#Armo una df con lo q me interesa bc reasons
+SFR_trainings= SFR.loc[(SFR['Ref Model ID'] == '05.02.07') | (SFR['Ref Model ID'] == '05.03.03')]
+
+#Planteo los posibles certificados, previamente definidos en la clase
+Certificates = ['GCP', 'RAVE', 'IATA', 'license']
+
+#Parseo por todos los staff members
+for staff_member in Sitio.Site_members:
+    #Reduzco la df a solo lo que tiene el apellido del staff member en el nombre del archivo o en la columna de "site personnel name" (esta ultima a veces esta vacia xq la mtadata es malisima)
+    df = SFR_trainings.loc[(SFR_trainings['Site personnel name'].str.contains(staff_member.last_name,na=False)) | (SFR_trainings['Document Name'].str.contains(staff_member.last_name,na=False))]
+    #Por cada atributo en Certificates...
+    for atribute in Certificates:   
+        #Si el atributo es True
+        if hasattr(staff_member,atribute) == True:
+            #Me fijo si hay algun archivo presente que tenga el nombre del certificado (atribute) en el subtype o en el nombre
+            if df.loc[(df['Ref Model Subtype'].str.contains(atribute)) | (df['Document Name'].str.contains(atribute))].empty:
+                print(f'Missing {atribute} for {staff_member.last_name}')
+            else:
+                print(f'{staff_member.last_name} has {atribute}')   
+        else:
+            print(f'{staff_member.last_name} doesnt need {atribute}')
 
 
 
