@@ -185,19 +185,22 @@ class Site_Staff:
         self.last_name = last_name
         self.role= role
         self.GCP = False
-        self.EDC = False
+        self.RAVE = False
         self.IATA = False
         self.License = False
         if self.role == 'Principal Investigator':
             self.GCP = True
-            self.EDC = True
+            self.RAVE = True
             self.IATA = True
             self.License = True
-        elif self.role == ' Sub-Investigator':
+        elif self.role == 'Sub-Investigator':
             self.GCP = True
             self.License = True
         self.start_date = start_date
-        self.end_date = end_date
+        if pd.isna(end_date):
+            self.end_date = 'Present'
+        else:
+            self.end_date = end_date
 
 Names= Contact_Report['First Name'].tolist()
 Last_names=Contact_Report['Last Name'].tolist()
