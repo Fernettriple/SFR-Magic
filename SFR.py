@@ -116,7 +116,7 @@ for index, row in SFR['Document date'].iteritems():
 #Creo este objeto para poder almacenar la info
 class Sitio:
     def add_atribute(atribute, info_to_add):
-        '''Esta funcion sirve para poder crear un atribute y asignarle un value llamado "info_to_add. Esto es especialmente util si estoy agregando cosas en un for loop'''
+        '''Esta funcion sirve para poder crear un atribute y asignarle un value llamado "info_to_add". Esto es especialmente util si estoy agregando cosas en un for loop'''
         if type(atribute)==str:
             atribute=atribute.replace(' ','_') #depuro los posibles caracteres q puedan joder al ponerle el atributo al objeto. TODO usar regex
             atribute=atribute.replace('/','_')
@@ -126,6 +126,7 @@ class Sitio:
         else:
             New_info=[info_to_add] #else, lo hago una lista.
         setattr(Sitio,atribute,New_info)
+
     #Informacion del Sitio
     Site_Number=Numero_de_sitio
 
@@ -133,9 +134,6 @@ class Sitio:
     First_IP=''    
     IP_Recieved=[]
     IP_Returned=[]
-
-    class Investigador:
-        pass
 
 #TODO
 #Programar toda la configuracion del protocolo en un archivo json. Asi vale para varios protocolos (onda, fecha de PAs)
@@ -157,6 +155,85 @@ else:
     Contact_Report= pd.read_excel(os.getcwd()+"\\CONTACT REPORT.xlsx",header=0)
 SFR= pd.read_excel(filename, sheet_name='Site',header=0)
 Contact_Report=Contact_Report[['Role','First Name', 'Last Name', 'Start Date','End Date']]
+
+class Site_Staff:
+    """
+    This class holds the information of the staff members
+
+    Atributes:
+        name (str): Name of the person.
+        last_name (str): Last name of the person.
+        role (str): Role of the person.
+        start_date(timestamp): Starting date for that person on the site.
+        end_date(timestamp): End date for that person on the site. This might not be present if the site member is still active.
+        
+    """
+
+    def __init__ (self, name=None, last_name=None, role=None, start_date=None,end_date=None):
+        """
+        Constructor of Site_staff class.
+
+        Parameters:
+            name (str): Name of the person.
+            last_name (str): Last name of the person.
+            role (str): Role of the person.
+            start_date(timestamp): Starting date for that person on the site.
+            end_date(timestamp): End date for that person on the site. This might not be present if the site member is still active.
+        """
+        self.name = name
+        self.last_name = last_name
+        self.role= role
+        self.GCP = False
+        self.RAVE = False
+        self.IATA = False
+        if self.role == 'Principal Investigator':
+            self.GCP = True
+            self.RAVE = True
+            self.IATA = True
+        elif self.role == ' Sub-Investigator':
+            self.GCP = True
+        self.start_date = start_date
+        self.end_date = end_date
+
+Names= Contact_Report['First Name'].tolist()
+Last_names=Contact_Report['Last Name'].tolist()
+Roles=Contact_Report['Role'].tolist()
+Starting_dates=Contact_Report['Start Date'].tolist()
+Ending_dates=Contact_Report['End Date'].tolist()
+
+Site_Members = []
+
+for nombres,apellidos,funcion,inicio,fin in zip(Names,Last_names,Roles,Starting_dates,Ending_dates):
+    Site_Members.append(Site_Staff(nombres,apellidos,funcion,inicio,fin))
+
+Sitio.Site_members=Site_Members
+
+#Una vez que tengo la informacion guardada la uso para que haga cosas
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #TODO Buscar ultima FDA1572 y si es de hace dos años, preguntar si es la ultima.
 
