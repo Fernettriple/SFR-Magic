@@ -144,7 +144,7 @@ class Sitio:
 
 #TODO Predecir CVs, Med Lics, y GCPs
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
-if 'CONTACT REPORT.csv' in os.listdir('.'):
+if 'CONTACT REPORT.csv' in os.listdir('.') and 'CONTACT REPORT.xlsx' not in os.listdir('.'):
     fname = os.getcwd()+"\\CONTACT REPORT.csv"
     excel = win32.gencache.EnsureDispatch('Excel.Application')
     wb = excel.Workbooks.Open(fname)
@@ -153,7 +153,10 @@ if 'CONTACT REPORT.csv' in os.listdir('.'):
     wb.Close()                               #FileFormat = 56 is for .xls extension
     excel.Application.Quit()
     Contact_Report= pd.read_excel(fname,header=0)
-
+else:
+    Contact_Report= pd.read_excel(os.getcwd()+"\\CONTACT REPORT.xlsx",header=0)
+SFR= pd.read_excel(filename, sheet_name='Site',header=0)
+Contact_Report=Contact_Report[['Role','First Name', 'Last Name', 'Start Date','End Date']]
 
 #TODO Buscar ultima FDA1572 y si es de hace dos años, preguntar si es la ultima.
 
