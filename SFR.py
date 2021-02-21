@@ -185,14 +185,17 @@ class Site_Staff:
         self.last_name = last_name
         self.role= role
         self.GCP = False
-        self.RAVE = False
+        self.EDC = False
         self.IATA = False
+        self.License = False
         if self.role == 'Principal Investigator':
             self.GCP = True
-            self.RAVE = True
+            self.EDC = True
             self.IATA = True
+            self.License = True
         elif self.role == ' Sub-Investigator':
             self.GCP = True
+            self.License = True
         self.start_date = start_date
         self.end_date = end_date
 
@@ -222,7 +225,7 @@ SFR['Expiration date']=pd.to_datetime(SFR['Expiration date'])
 SFR_trainings= SFR.loc[(SFR['Ref Model ID'] == '05.02.07') | (SFR['Ref Model ID'] == '05.03.03')]
 
 #Planteo los posibles certificados, previamente definidos en la clase
-Certificates = ['GCP', 'RAVE', 'IATA', 'License']
+Certificates = ['GCP', 'EDC', 'IATA', 'License']
 
 #Parseo por todos los staff members
 for staff_member in Sitio.Site_members:
@@ -263,7 +266,7 @@ for staff_member in Sitio.Site_members:
                     #Como algunas certificaciones no tienen exp date porque la metadata es un sida, lo arreglo aca
                     if atribute == 'GCP':
                         df_cert['Expiration date'][index] = df_cert['Document date'][index]+datetime.timedelta(days=1095)
-                    elif atribute == 'RAVE':
+                    elif atribute == 'EDC':
                         df_cert['Expiration date'][index] = df_cert['Document date'][index]+datetime.timedelta(days=42069)
                     elif atribute == 'IATA':
                         df_cert['Expiration date'][index] = df_cert['Document date'][index]+datetime.timedelta(days=730)
