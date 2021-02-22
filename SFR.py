@@ -19,23 +19,23 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 #Esto me permite convertir la wea a .xlsx. lo saque de StackOverflow (NO CONSERVA H-LINKS)
 #Hago lo mismo para los dos reportes de IP
-# if 'IP RETURN.xlsx' not in os.listdir('.'):
-#     if 'IP RETURN.xls' in os.listdir('.'):
-#         fname = os.getcwd()+"\\IP RETURN.xls"
-#     excel = win32.gencache.EnsureDispatch('Excel.Application')
-#     wb = excel.Workbooks.Open(fname)
-#     wb.SaveAs(fname+"x", FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-#     wb.Close()                               #FileFormat = 56 is for .xls extension
-#     excel.Application.Quit()
+if 'IP RETURN.xlsx' not in os.listdir('.'):
+    if 'IP RETURN.xls' in os.listdir('.'):
+        fname = os.getcwd()+"\\IP RETURN.xls"
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    wb = excel.Workbooks.Open(fname)
+    wb.SaveAs(fname+"x", FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
+    wb.Close()                               #FileFormat = 56 is for .xls extension
+    excel.Application.Quit()
 
-# if 'IP SHIPMENT.xlsx' not in os.listdir('.'):
-#     if 'IP SHIPMENT.xls' in os.listdir('.'):
-#         fname = os.getcwd()+"\\IP SHIPMENT.xls"
-#     excel = win32.gencache.EnsureDispatch('Excel.Application')
-#     wb = excel.Workbooks.Open(fname)
-#     wb.SaveAs(fname+"x", FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-#     wb.Close()                               #FileFormat = 56 is for .xls extension
-#     excel.Application.Quit()
+if 'IP SHIPMENT.xlsx' not in os.listdir('.'):
+    if 'IP SHIPMENT.xls' in os.listdir('.'):
+        fname = os.getcwd()+"\\IP SHIPMENT.xls"
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    wb = excel.Workbooks.Open(fname)
+    wb.SaveAs(fname+"x", FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
+    wb.Close()                               #FileFormat = 56 is for .xls extension
+    excel.Application.Quit()
 
 
 #Abro el archivo REPORT.xlsx para sacer la info necesaria
@@ -259,14 +259,16 @@ else:
     Sitio.IP_Returned=list(IP_RETURN_Site['Return Shipment Number'])
 
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.10']
-for shipment in Sitio.IP_Returned:    
-    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
-    if Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)].empty==False:
-        spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)]
-        add_to_excel(spam[0],'06.01.10','Y',f"IP Return documentation for {shipment} shipping",'N')
-    else:
-        add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
-
+if Sitio.IP_Returned != None:
+    for shipment in Sitio.IP_Returned:    
+        Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+        if Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)].empty==False:
+            spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)]
+            add_to_excel(spam[0],'06.01.10','Y',f"IP Return documentation for {shipment} shipping",'N')
+        else:
+            add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
+else:    
+    add_to_excel(SFR.index[SFR['Ref Model ID'] == '06.01.10'][0],'06.01.10','Y',f"No IP was returned",'N')
 #Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
 
 add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
@@ -385,8 +387,16 @@ for staff_member in Site_Members:
                 Ref_model= '05.03.03'
                 
             #Si no encuentro resultados, agregar al fondo
+            #TODO ARREGLAR TODOS LOS TEMAS DE LAS FECHAS DIOS ES UN CANCER TENER Q HACER ESTO:
+            if staff_member.end_date == 'Present':
+                msg = 'Present'
+            elif type(staff_member.end_date) == str:
+                msg = datetime.datetime.strptime(staff_member.end_date,"%d-%b-%Y").date()
+            if type(staff_member.start_date) == str:
+                staff_member.start_date = datetime.datetime.strptime(staff_member.start_date,"%d-%b-%Y")
+
             if df_cert.empty:                
-                add_to_excel(' ',Ref_model, 'N', f'{atribute} for {staff_member.last_name} covering from {datetime.datetime.strftime(staff_member.start_date,"%d-%b-%Y")} to {staff_member.end_date}', 'Y', 'Collect from site')
+                add_to_excel(' ',Ref_model, 'N', f'{atribute} for {staff_member.last_name} covering from {staff_member.start_date.date()} to {msg}', 'Y', 'Collect from site')
                   
             #Si encontro archivos vamos a checkear la fecha y compararla con lo que se necesita
             else:
@@ -417,6 +427,8 @@ for staff_member in Site_Members:
                     #si la diferencia de fecha entre la licencia/training y la fecha de inicio/licencia anterior es mayor a 0, significa q el training ocurrio antes de la fecha limite, ergo esta todo bien
                     #Pero si es menor a 0, significa q el certificado se expidio despues de la fecha limite.
                     #seteo unos 90 de gracia para que la dif este todo bien, pero si es mayor a esos 90 dias hago cosas
+                    if type(Cert_date) == str:
+                        Cert_date = datetime.datetime.strptime(Cert_date,'%d-%b-%Y')
                     if (df_cert['Document date'][index] - Cert_date) > datetime.timedelta(days=90):                             
                         add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date.date()} to {df_cert['Document date'][index].date()} missing", 'Y', 'Collect from site')
                     Cert_date = df_cert['Expiration date'][index]          
@@ -424,10 +436,10 @@ for staff_member in Site_Members:
                 #checkeo la dif entre cuando vence la ultima licencia y cuando se fue del sitio o presente
                 if staff_member.end_date == 'Present':
                      if (datetime.datetime.today() - Cert_date) > datetime.timedelta(days=0):
-                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {staff_member.end_date}.', 'Y', 'Collect from site, if applicable')
+                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable')
                 else:            
                     if (staff_member.end_date - Cert_date) > datetime.timedelta(days=0):
-                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {staff_member.end_date}.', 'Y', 'Collect from site, if applicable')
+                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable')
                 
 
 #TODO si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
