@@ -170,9 +170,10 @@ def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Ac
     '''Esta Funcion sirve para agregar los comentarios al Excel. '''
     wb = openpyxl.load_workbook(Nombre_de_archivo)    
     ws=wb['Site']
-    Row_num = ws.max_row+2 #para la df el primer index es 0, pero el excel arranca en 2
     if Present_in_eTMF=='N':
         Row_num=ws.max_row+1 #Si no esta presente, mando el comentario al fondo
+    else:
+        Row_num +=2 #para la df el primer index es 0, pero el excel arranca en 2
     ws.cell(Row_num,6).value = Ref_model_ID
     ws.cell(Row_num,11).value = Present_in_eTMF
     ws.cell(Row_num,12).value = Comments
@@ -265,8 +266,8 @@ else:
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.10']
 for shipment in Sitio.IP_Returned:    
     Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
-    if Bacon.index[Bacon['Document Name'].str.contains(str(shipment))].empty==False:
-        spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment))]
+    if Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)].empty==False:
+        spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)]
         add_to_excel(spam[0],'06.01.10','Y',f"IP Return documentation for {shipment} shipping",'N')
     else:
         add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
@@ -370,7 +371,7 @@ Certificates = ['GCP', 'EDC', 'IATA', 'License']
 #Parseo por todos los staff members
 for staff_member in Site_Members:    
     #Reduzco la df a solo lo que tiene el apellido del staff member en el nombre del archivo o en la columna de "site personnel name" (esta ultima a veces esta vacia xq la mtadata es malisima)
-    df = SFR_trainings.loc[(SFR_trainings['Site personnel name'].str.contains(staff_member.last_name,na=False)) | (SFR_trainings['Document Name'].str.contains(staff_member.last_name,na=False))]
+    df = SFR_trainings.loc[(SFR_trainings['Site personnel name'].str.contains(staff_member.last_name,na=False, flags=re.I, regex=True)) | (SFR_trainings['Document Name'].str.contains(staff_member.last_name,na=False, flags=re.I, regex=True))]
   
     #Por cada atributo en Certificates...    
     for atribute in Certificates: 
@@ -382,7 +383,7 @@ for staff_member in Site_Members:
             #Si no hay nada, agrego una columna al final pidiendo lo que falta
             #Para evitar codigo feo, defino una nueva df_cert para no estar typeando df.loc[(df['Ref Model Subtype'].str.contains(atribute)) | (df['Document Name'].str.contains(atribute))]
             #todo el tiempo
-            df_cert = df.loc[(df['Ref Model Subtype'].str.contains(atribute)) | (df['Document Name'].str.contains(atribute))]                
+            df_cert = df.loc[(df['Ref Model Subtype'].str.contains(atribute, flags=re.I, regex=True)) | (df['Document Name'].str.contains(atribute, flags=re.I, regex=True))]                
             if atribute == 'GCP' or atribute == 'License':
                 Ref_model= '05.02.07'
             else:
@@ -415,23 +416,23 @@ for staff_member in Site_Members:
                         df_cert['Expiration date'][index] = df_cert['Document date'][index]+datetime.timedelta(days=365)                 
                     
                     #Ahora extraigo el index correspondiente al row en la SFR original y agrego la info en los comments
-                    comment = f"{atribute} certificate covering from {df_cert['Document date'][index].date()} to {df_cert['Expiration date'][index].date()}"
+                    comment = f"{atribute} certificate from {df_cert['Document date'][index].date()} to {df_cert['Expiration date'][index].date()}"
                     add_to_excel(df_cert['index'][index],Ref_model,'Y',comment , 'N')  
-                    print(df_cert['index'][index])
+
                     #si la diferencia de fecha entre la licencia/training y la fecha de inicio/licencia anterior es mayor a 0, significa q el training ocurrio antes de la fecha limite, ergo esta todo bien
                     #Pero si es menor a 0, significa q el certificado se expidio despues de la fecha limite.
                     #seteo unos 90 de gracia para que la dif este todo bien, pero si es mayor a esos 90 dias hago cosas
                     if (df_cert['Document date'][index] - Cert_date) > datetime.timedelta(days=90):                             
-                        add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date} to {df_cert['Document date'][index].date()} missing", 'Y', 'Collect from site')
+                        add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date.date()} to {df_cert['Document date'][index].date()} missing", 'Y', 'Collect from site')
                     Cert_date = df_cert['Expiration date'][index]          
                     
                 #checkeo la dif entre cuando vence la ultima licencia y cuando se fue del sitio o presente
                 if staff_member.end_date == 'Present':
                      if (datetime.datetime.today() - Cert_date) > datetime.timedelta(days=0):
-                        add_to_excel(' ',Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {staff_member.end_date}.', 'Y', 'Collect from site, if applicable')
+                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {staff_member.end_date}.', 'Y', 'Collect from site, if applicable')
                 else:            
                     if (staff_member.end_date - Cert_date) > datetime.timedelta(days=0):
-                        add_to_excel(' ',Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {staff_member.end_date}.', 'Y', 'Collect from site, if applicable')
+                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {staff_member.end_date}.', 'Y', 'Collect from site, if applicable')
                 
 
 #si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
