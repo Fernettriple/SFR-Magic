@@ -242,7 +242,9 @@ for shipment in Sitio.IP_Recieved:
             else:
                 add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
     if Shipment_types!=[]:
-        add_to_excel(0,'06.01.04','N',f'{Shipment_types} missing from {shipment} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+        if len(Shipment_types) == 3:
+            Shipment_types = 'IP Packing list and IP Shipment confirmation'
+        add_to_excel(0,'06.01.04','N',f'{Shipment_types} missing for {shipment} shipment','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
 
 
 #Extraigo informacion de IP RETURN y lo meto en el Sitio
@@ -492,12 +494,12 @@ SFR_FDA.reset_index(inplace=True)
 if Sitio.Cerrado == True:
     if hasattr(Sitio,'Site_Visit_Closeout'):
         if (datetime.datetime.strptime(Sitio.Site_Visit_Closeout[0], '%d-%b-%Y') - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
-            add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Closeout in {Sitio.Site_Visit_Closeout[0]}. Please check",'N')
+            add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Closeout in {Sitio.Site_Visit_Closeout[0]}. Please check if this is the latest one applicable",'N')
     else:
         if (datetime.datetime.strptime(Sitio.Telephone_Closeout[0], '%d-%b-%Y') - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
-            add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Telephone Closeout in {Sitio.Telephone_Closeout[0]}. Please check", "N")        
+            add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Telephone Closeout in {Sitio.Telephone_Closeout[0]}. Please check if this is the latest one applicable", "N")        
 elif (datetime.datetime.today() - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
-    add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Initiation in {Sitio.Site_Visit_Initiation[0]}. Please check", "N")
+    add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Initiation in {Sitio.Site_Visit_Initiation[0]}. Please check if this is the latest one applicable", "N")
 
 #TODO encontrar manera que se me habia ocurrido pero ahora no de saber si el sitio es local o central lab/irb. y pedir todolo necesario, incluyendo membership list 
 
