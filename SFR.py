@@ -130,19 +130,13 @@ class Sitio:
 
     #Informacion del Sitio
     Site_Number=Numero_de_sitio
-
+    Cerrado = False
     #IP Shipment information
     First_IP=''    
     IP_Recieved=[]
     IP_Returned=[]
 
-#TODO
-#Programar toda la configuracion del protocolo en un archivo json. Asi vale para varios protocolos (onda, fecha de PAs)
-
-
-
-#TODO Buscar ultima FDA1572 y si es de hace dos años, preguntar si es la ultima.
-
+#TODO FDFs y Data privacy
 #usando el reporte de visitas, checkear que estan todas las cfm, fup, svr
 if 'VISIT REPORT.csv' in os.listdir('.') and 'VISIT REPORT.xlsx' not in os.listdir('.'):
     fname = os.getcwd()+"\\VISIT REPORT.csv"
@@ -164,7 +158,6 @@ for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems(
     except:
         pass
 #Ahora parseo por el DF del excel
-#TODO, modificar esta funcion add_to_excel para q introduzca el red model tmb
 
 def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Action):
     '''Esta Funcion sirve para agregar los comentarios al Excel. '''
@@ -206,6 +199,8 @@ def check_and_add(code, atribute):
     if hasattr(Sitio,atribute):
         for Visit_Report in getattr(Sitio,atribute):
             add_visit_from_report(code, Visit_Report)
+        if atribute == 'Site_Visit_Closeout' or atribute == 'Telephone_Closeout':
+            Sitio.Cerrado = True
 
 #TODO Agregar todo los tipos de visita (booster por ejemplo)
 
@@ -471,6 +466,26 @@ if 'study_data.json' not in os.listdir('.'):
             print('Si desea introducir otro amendment')
         print('Si desea terminar, presione enter')
 
+#FDA5172 estoy dormido, si funciona funciona
+SFR= pd.read_excel(filename, sheet_name='Site',header=0)
+SFR['Document date']=pd.to_datetime(SFR['Document date'])
+
+SFR_FDA = SFR.loc[(SFR['Ref Model ID'] == '05.02.08') & ~(SFR['Document date'].isna() )]
+SFR_FDA.sort_values(by='Document date', inplace=True)
+SFR_FDA.reset_index(inplace=True)
+if (SFR_FDA['Document date'][0] - datetime.datetime.strptime(Sitio.Site_Visit_Initiation[0], '%d-%b-%Y')) > datetime.timedelta(days=365):
+    add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"First FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Initiation in {Sitio.Site_Visit_Initiation[0]}. Please check",'N')
+SFR_FDA=SFR_FDA.tail(1)
+SFR_FDA.reset_index(inplace=True)
+if Sitio.Cerrado == True:
+    if hasattr(Sitio,'Site_Visit_Closeout'):
+        if (datetime.datetime.strptime(Sitio.Site_Visit_Closeout[0], '%d-%b-%Y') - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
+            add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Closeout in {Sitio.Site_Visit_Closeout[0]}. Please check",'N')
+    else:
+        if (datetime.datetime.strptime(Sitio.Telephone_Closeout[0], '%d-%b-%Y') - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
+            add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Telephone Closeout in {Sitio.Telephone_Closeout[0]}. Please check", "N")        
+elif (datetime.datetime.today() - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
+    add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Initiation in {Sitio.Site_Visit_Initiation[0]}. Please check", "N")
 
 #TODO encontrar manera que se me habia ocurrido pero ahora no de saber si el sitio es local o central lab/irb. y pedir todolo necesario, incluyendo membership list 
 
