@@ -141,6 +141,141 @@ class Sitio:
 
 
 
+#TODO Buscar ultima FDA1572 y si es de hace dos años, preguntar si es la ultima.
+
+#usando el reporte de visitas, checkear que estan todas las cfm, fup, svr
+if 'VISIT REPORT.csv' in os.listdir('.') and 'VISIT REPORT.xlsx' not in os.listdir('.'):
+    fname = os.getcwd()+"\\VISIT REPORT.csv"
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    wb = excel.Workbooks.Open(fname)
+    fname=fname.split('.')[0]+".xlsx"
+    wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
+    wb.Close()                               #FileFormat = 56 is for .xls extension
+    excel.Application.Quit()
+    
+
+#Agarro del Visit report y agrego al Sitio cada una de las visitas, usando como nombre de atributo el tipo de visita, y el atributo es la fecha..
+#El atributo es una lista, y si hay mas de una visita del mismo tipo, lo appendea
+Visit_Report= pd.read_excel( os.getcwd()+"\\VISIT REPORT.xlsx",header=0)
+for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems():    
+    try:
+        Visit_Report.loc[index_Visit_Report,'Visit End']=Visit_Report.loc[index_Visit_Report,'Visit End'].strftime('%d-%b-%Y')
+        Sitio.add_atribute(Visit_Report['Visit Type'][index_Visit_Report], Visit_Report['Visit End'][index_Visit_Report])
+    except:
+        pass
+#Ahora parseo por el DF del excel
+#TODO, modificar esta funcion add_to_excel para q introduzca el red model tmb
+
+def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Action):
+    '''Esta Funcion sirve para agregar los comentarios al Excel. '''
+    wb = openpyxl.load_workbook(Nombre_de_archivo)    
+    ws=wb['Site']
+    Row_num+=2 #para la df el primer index es 0, pero el excel arranca en 2
+    if Present_in_eTMF=='N':
+        Row_num=ws.max_row+1 #Si no esta presente, mando el comentario al fondo
+    ws.cell(Row_num,6).value = Ref_model_ID
+    ws.cell(Row_num,11).value = Present_in_eTMF
+    ws.cell(Row_num,12).value = Comments
+    ws.cell(Row_num,13).value = Action_needed
+    if Action_needed=='Y':
+        ws.cell(Row_num,14).value=Action[0]
+    wb.save(Nombre_de_archivo)
+
+def add_visit_from_report(Ref_ID, Generic_Variable_in_the_loop):
+    '''Esta funcion checkea todas las visitas del reporte de visitas y se fija si estan en el archivo de SFR. Si estan, escribe en comments 
+    diciendo que es la carta, si no esta agrega al final una linea con la info de que es lo que falta'''
+    Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
+    for index, row in SFR['Ref Model ID'].iteritems():
+        if SFR.loc[index,'Document date']==None:
+            continue
+        if (SFR.loc[index,'Ref Model ID']==Ref_ID and
+            SFR.loc[index,'Document date']== Str_to_date(Generic_Variable_in_the_loop)):
+            if SFR.loc[index,'Ref Model Subtype'] not in Letter_Types:
+                add_to_excel(index,'05.04.03','Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'Y','Errase Duplicated')
+                continue #Si tengo un duplicado, no va a estar en letter types xq ya fue popeado. 
+            else:
+                Letter_Types.remove(SFR.loc[index,'Ref Model Subtype'])
+                SFR.loc[index,'Ref Model ID']=np.nan
+                add_to_excel(index,'05.04.03','Y',f"{(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'N')
+    if Letter_Types!=[]:
+        add_to_excel(0,'05.04.03','N',f'{Letter_Types} missing from {Generic_Variable_in_the_loop} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+
+def check_and_add(code, atribute):
+    '''Esta Funcion agarra un Ref ID y se fija si en el objeto Sitio tengo un tipo de visita que corresponda a ese ID. Si esta, ejecuta add_visit_from_report'''
+    if hasattr(Sitio,atribute):
+        for Visit_Report in getattr(Sitio,atribute):
+            add_visit_from_report(code, Visit_Report)
+
+#TODO Agregar todo los tipos de visita (booster por ejemplo)
+
+check_and_add('05.01.04','Site_Visit_Selection')
+check_and_add('05.03.01','Site_Visit_Initiation')            
+check_and_add('05.04.03','Site_Visit_Interim')  
+check_and_add('05.04.08','Site_Visit_Closeout' )
+check_and_add('05.04.08','Telephone_Closeout' )
+
+
+#Extraigo informacion de IP SHIPMENT y lo meto en el Sitio
+IP_SHIPMENT= pd.read_excel('IP SHIPMENT.xlsx', sheet_name='Sheet',header=2)
+
+#Reduzco a mi sitio y a los envios recibidos
+IP_SHIPMENT=IP_SHIPMENT.loc[IP_SHIPMENT['Shipment Status']=='Received']
+IP_SHIPMENT_Site=IP_SHIPMENT.loc[IP_SHIPMENT['Ship to Site Number']==int(Sitio.Site_Number)]
+
+if IP_SHIPMENT_Site.empty: #Puede que no haya tenido IP el sitio
+    Sitio.IP_Recieved=None
+    Sitio.First_IP=None
+else:
+    IP_Shipping_Dates=pd.to_datetime(IP_SHIPMENT_Site['Received Date'])
+
+#Guardo todos los envios y el primero, porque me sirve para los IP temperature logs    
+    Sitio.IP_Recieved=list(IP_SHIPMENT_Site['Shipment Number'])
+    Sitio.First_IP=min(IP_Shipping_Dates).strftime('%d-%b-%Y')
+
+#Ahora busco en SFR si estan los IP shipments
+SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
+for shipment in Sitio.IP_Recieved:
+    Shipment_types=['Packing List','Confirmation','Acknowledgement']
+    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+    for documents in Shipment_types:
+        if Bacon.index[Bacon['Document Name'].str.contains(documents)].empty==False:
+            spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
+            Shipment_types.remove(documents)
+            if documents=='Acknowledgement':
+                add_to_excel(spam[0],'06.01.04','Y',f"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
+            else:
+                add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
+    if Shipment_types!=[]:
+        add_to_excel(0,'06.01.04','N',f'{Shipment_types} missing from {shipment} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+
+
+#Extraigo informacion de IP RETURN y lo meto en el Sitio
+IP_RETURN= pd.read_excel('IP RETURN.xlsx', sheet_name='Sheet',header=2)
+IP_RETURN=IP_RETURN.loc[IP_RETURN['Return Shipment Status']=='Received']
+IP_RETURN_Site=IP_RETURN.loc[IP_RETURN['Ship from Site Number']==int(Sitio.Site_Number)]
+
+if IP_RETURN_Site.empty: #Puede que no haya devuelto IP el sitio
+    Sitio.IP_Returned=None  
+else:
+    IP_Return_Dates=pd.to_datetime(IP_RETURN_Site['Date Received'])
+
+#Guardo los IP return
+    Sitio.IP_Returned=list(IP_RETURN_Site['Return Shipment Number'])
+
+SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.10']
+for shipment in Sitio.IP_Returned:    
+    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+    if Bacon.index[Bacon['Document Name'].str.contains(str(shipment))].empty==False:
+        spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment))]
+        add_to_excel(spam[0],'06.01.10','Y',f"IP Return documentation for {shipment} shipping",'N')
+    else:
+        add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
+
+#Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
+
+add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+
 #TODO Predecir CVs, Med Lics, y GCPs
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
 if 'CONTACT REPORT.csv' in os.listdir('.') and 'CONTACT REPORT.xlsx' not in os.listdir('.'):
@@ -185,12 +320,12 @@ class Site_Staff:
         self.last_name = last_name
         self.role= role
         self.GCP = False
-        self.RAVE = False
+        self.EDC = False
         self.IATA = False
         self.License = False
         if self.role == 'Principal Investigator':
             self.GCP = True
-            self.RAVE = True
+            self.EDC = True
             self.IATA = True
             self.License = True
         elif self.role == 'Sub-Investigator':
@@ -310,162 +445,6 @@ for staff_member in Sitio.Site_members:
         else:
             print(f'{staff_member.last_name} doesnt need {atribute}')    
     print('-'*50)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#TODO Buscar ultima FDA1572 y si es de hace dos años, preguntar si es la ultima.
-
-#usando el reporte de visitas, checkear que estan todas las cfm, fup, svr
-if 'VISIT REPORT.csv' in os.listdir('.') and 'VISIT REPORT.xlsx' not in os.listdir('.'):
-    fname = os.getcwd()+"\\VISIT REPORT.csv"
-    excel = win32.gencache.EnsureDispatch('Excel.Application')
-    wb = excel.Workbooks.Open(fname)
-    fname=fname.split('.')[0]+".xlsx"
-    wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-    wb.Close()                               #FileFormat = 56 is for .xls extension
-    excel.Application.Quit()
-    
-
-#Agarro del Visit report y agrego al Sitio cada una de las visitas, usando como nombre de atributo el tipo de visita, y el atributo es la fecha..
-#El atributo es una lista, y si hay mas de una visita del mismo tipo, lo appendea
-Visit_Report= pd.read_excel( os.getcwd()+"\\VISIT REPORT.xlsx",header=0)
-for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems():    
-    try:
-        Visit_Report.loc[index_Visit_Report,'Visit End']=Visit_Report.loc[index_Visit_Report,'Visit End'].strftime('%d-%b-%Y')
-        Sitio.add_atribute(Visit_Report['Visit Type'][index_Visit_Report], Visit_Report['Visit End'][index_Visit_Report])
-    except:
-        pass
-#Ahora parseo por el DF del excel
-def add_to_excel(Row_num,Present_in_eTMF,Comments,Action_needed,*Action):
-    '''Esta Funcion sirve para agregar los comentarios al Excel. '''
-    wb = openpyxl.load_workbook(Nombre_de_archivo)    
-    ws=wb['Site']
-    Row_num+=2 #para la df el primer index es 0, pero el excel arranca en 2
-    if Present_in_eTMF=='N':
-        Row_num=ws.max_row+1 #Si no esta presente, mando el comentario al fondo
-    ws.cell(Row_num,11).value=Present_in_eTMF
-    ws.cell(Row_num,12).value=Comments
-    ws.cell(Row_num,13).value=Action_needed
-    if Action_needed=='Y':
-        ws.cell(Row_num,14).value=Action[0]
-    wb.save(Nombre_de_archivo)
-
-def add_visit_from_report(Ref_ID, Generic_Variable_in_the_loop):
-    '''Esta funcion checkea todas las visitas del reporte de visitas y se fija si estan en el archivo de SFR. Si estan, escribe en comments 
-    diciendo que es la carta, si no esta agrega al final una linea con la info de que es lo que falta'''
-    Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
-    for index, row in SFR['Ref Model ID'].iteritems():
-        if SFR.loc[index,'Document date']==None:
-            continue
-        if (SFR.loc[index,'Ref Model ID']==Ref_ID and
-            SFR.loc[index,'Document date']== Str_to_date(Generic_Variable_in_the_loop)):
-            if SFR.loc[index,'Ref Model Subtype'] not in Letter_Types:
-                add_to_excel(index,'Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'Y','Errase Duplicated')
-                continue #Si tengo un duplicado, no va a estar en letter types xq ya fue popeado. 
-            else:
-                Letter_Types.remove(SFR.loc[index,'Ref Model Subtype'])
-                SFR.loc[index,'Ref Model ID']=np.nan
-                add_to_excel(index,'Y',f"{(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'N')
-    if Letter_Types!=[]:
-        add_to_excel(0,'N',f'{Letter_Types} missing from {Generic_Variable_in_the_loop} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
-
-def check_and_add(code, atribute):
-    '''Esta Funcion agarra un Ref ID y se fija si en el objeto Sitio tengo un tipo de visita que corresponda a ese ID. Si esta, ejecuta add_visit_from_report'''
-    if hasattr(Sitio,atribute):
-        for Visit_Report in getattr(Sitio,atribute):
-            add_visit_from_report(code, Visit_Report)
-
-#TODO Agregar todo los tipos de visita (booster por ejemplo)
-
-check_and_add('05.01.04','Site_Visit_Selection')
-check_and_add('05.03.01','Site_Visit_Initiation')            
-check_and_add('05.04.03','Site_Visit_Interim')  
-check_and_add('05.04.08','Site_Visit_Closeout' )
-check_and_add('05.04.08','Telephone_Closeout' )
-
-
-#Extraigo informacion de IP SHIPMENT y lo meto en el Sitio
-IP_SHIPMENT= pd.read_excel('IP SHIPMENT.xlsx', sheet_name='Sheet',header=2)
-
-#Reduzco a mi sitio y a los envios recibidos
-IP_SHIPMENT=IP_SHIPMENT.loc[IP_SHIPMENT['Shipment Status']=='Received']
-IP_SHIPMENT_Site=IP_SHIPMENT.loc[IP_SHIPMENT['Ship to Site Number']==int(Sitio.Site_Number)]
-
-if IP_SHIPMENT_Site.empty: #Puede que no haya tenido IP el sitio
-    Sitio.IP_Recieved=None
-    Sitio.First_IP=None
-else:
-    IP_Shipping_Dates=pd.to_datetime(IP_SHIPMENT_Site['Received Date'])
-
-#Guardo todos los envios y el primero, porque me sirve para los IP temperature logs    
-    Sitio.IP_Recieved=list(IP_SHIPMENT_Site['Shipment Number'])
-    Sitio.First_IP=min(IP_Shipping_Dates).strftime('%d-%b-%Y')
-
-#Ahora busco en SFR si estan los IP shipments
-SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
-for shipment in Sitio.IP_Recieved:
-    Shipment_types=['Packing List','Confirmation','Acknowledgement']
-    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
-    for documents in Shipment_types:
-        if Bacon.index[Bacon['Document Name'].str.contains(documents)].empty==False:
-            spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
-            Shipment_types.remove(documents)
-            if documents=='Acknowledgement':
-                add_to_excel(spam[0],'Y',f"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
-            else:
-                add_to_excel(spam[0],'Y',f"{documents} for {shipment} shipping",'N')
-    if Shipment_types!=[]:
-        add_to_excel(0,'N',f'{Shipment_types} missing from {shipment} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
-
-
-#Extraigo informacion de IP RETURN y lo meto en el Sitio
-IP_RETURN= pd.read_excel('IP RETURN.xlsx', sheet_name='Sheet',header=2)
-IP_RETURN=IP_RETURN.loc[IP_RETURN['Return Shipment Status']=='Received']
-IP_RETURN_Site=IP_RETURN.loc[IP_RETURN['Ship from Site Number']==int(Sitio.Site_Number)]
-
-if IP_RETURN_Site.empty: #Puede que no haya devuelto IP el sitio
-    Sitio.IP_Returned=None  
-else:
-    IP_Return_Dates=pd.to_datetime(IP_RETURN_Site['Date Received'])
-
-#Guardo los IP return
-    Sitio.IP_Returned=list(IP_RETURN_Site['Return Shipment Number'])
-
-SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.10']
-for shipment in Sitio.IP_Returned:    
-    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
-    if Bacon.index[Bacon['Document Name'].str.contains(str(shipment))].empty==False:
-        spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment))]
-        add_to_excel(spam[0],'Y',f"IP Return documentation for {shipment} shipping",'N')
-    else:
-        add_to_excel(0,'N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
-
-#Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
-
-add_to_excel(0,'N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
-add_to_excel(0,'N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
-
 
 #si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
 
