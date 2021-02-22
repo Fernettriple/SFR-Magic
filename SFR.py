@@ -435,9 +435,43 @@ for staff_member in Site_Members:
                         add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {staff_member.end_date}.', 'Y', 'Collect from site, if applicable')
                 
 
-#si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
+#TODO si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
 
 #TODO PAs y IBs. Usando la visita de iniciacion puedo predecir que PAs/IBs tendria que tener. Puedo usar lo mismo para los irb approvals.
+import json
+if 'study_data.json' not in os.listdir('.'):
+    Study_data = {}
+    while True:
+        print('Introduzca lo que quiere agregar')
+        print('1.- Protocol Amendment\n2.- Investigator Brochure')
+        mode = input()
+        if mode == '':
+            break
+        while True:
+            
+            print('Escriba por favor la informacion en el formato "Version-Fecha, siendo la fecha escriba en formato YYYYMMDD"')
+            print('Por ejemplo: "08-20200518"')
+            print('Si desea volver al otro menu, presione enter')
+            data = input()
+            if data == '':
+                break
+            version = data.split('-')[0]
+            fecha = data.split('-')[1]
+            if len(fecha) != 8:
+                print(f'La fecha introducida {fecha} parece que no esta en el formato YYYYMMDD. Por favor, re introducela')
+                fecha = input()
+            if mode == 1:
+                Study_data['PA V'+version] = fecha
+            else:
+                Study_data['IB V'+version] = fecha
+            with open('study_data.json', 'w') as json_file:
+                json.dump(Study_data, json_file)
+
+            print()
+            print('Si desea introducir otro amendment')
+        print('Si desea terminar, presione enter')
+
+
 #TODO encontrar manera que se me habia ocurrido pero ahora no de saber si el sitio es local o central lab/irb. y pedir todolo necesario, incluyendo membership list 
 
 
