@@ -374,7 +374,7 @@ for staff_member in Site_Members:
     for atribute in Certificates: 
                
         #Si el atributo es True
-        if hasattr(staff_member,atribute) == True:
+        if getattr(staff_member,atribute) == True:
             
             #Me fijo si hay algun archivo presente que tenga el nombre del certificado (atribute) en el subtype o en el nombre
             #Si no hay nada, agrego una columna al final pidiendo lo que falta
