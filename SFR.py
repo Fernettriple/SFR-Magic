@@ -432,15 +432,19 @@ for staff_member in Site_Members:
                     if type(Cert_date) == str:
                         Cert_date = datetime.datetime.strptime(Cert_date,'%d-%b-%Y')
                     if (df_cert['Document date'][index] - Cert_date) > datetime.timedelta(days=90):                             
-                        add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date.date()} to {df_cert['Document date'][index].date()} missing", 'Y', 'Collect from site')
+                        add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date.date()} to {df_cert['Document date'][index].date()}", 'Y', 'Collect from site')
                     Cert_date = df_cert['Expiration date'][index]          
                     
                 #checkeo la dif entre cuando vence la ultima licencia y cuando se fue del sitio o presente
                 if staff_member.end_date == 'Present':
                      if (datetime.datetime.today() - Cert_date) > datetime.timedelta(days=0):
                         add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable')
-                else:            
-                    if (staff_member.end_date - Cert_date) > datetime.timedelta(days=0):
+                else:
+                    if type(staff_member.end_date) == str:
+                        msg = pd.Timestamp(staff_member.end_date)
+                    else:
+                        msg = staff_member.end_date
+                    if (msg - Cert_date) > datetime.timedelta(days=0):
                         add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable')
                 
 
