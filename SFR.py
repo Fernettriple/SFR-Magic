@@ -484,7 +484,7 @@ if 'study_data.json' not in os.listdir('.'):
             print('Si desea introducir otro amendment')
         print('Si desea terminar, presione enter')
 
-#FDA5172 estoy dormido, si funciona funciona
+#FDA1572 estoy dormido, si funciona funciona
 SFR= pd.read_excel(filename, sheet_name='Site',header=0)
 SFR['Document date']=pd.to_datetime(SFR['Document date'])
 
@@ -503,7 +503,7 @@ if Sitio.Cerrado == True:
         if (datetime.datetime.strptime(Sitio.Telephone_Closeout[0], '%d-%b-%Y') - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
             add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Telephone Closeout in {Sitio.Telephone_Closeout[0]}. Please check if this is the latest one applicable", "N")        
 elif (datetime.datetime.today() - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
-    add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Initiation in {Sitio.Site_Visit_Initiation[0]}. Please check if this is the latest one applicable", "N")
+    add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()}. Please check if we are not missing a more updated version.", "N")
 
 #TODO encontrar manera que se me habia ocurrido pero ahora no de saber si el sitio es local o central lab/irb. y pedir todolo necesario, incluyendo membership list 
 
