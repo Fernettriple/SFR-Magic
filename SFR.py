@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# encoding : UTF-8
 
 import openpyxl
 from openpyxl import Workbook, load_workbook
@@ -159,7 +160,7 @@ for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems(
         pass
 #Ahora parseo por el DF del excel
 
-def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Action):
+def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Action, **staff):
     '''Esta Funcion sirve para agregar los comentarios al Excel. '''
     wb = openpyxl.load_workbook(Nombre_de_archivo)    
     ws=wb['Site']
@@ -167,6 +168,9 @@ def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Ac
         Row_num=ws.max_row+1 #Si no esta presente, mando el comentario al fondo
     else:
         Row_num +=2 #para la df el primer index es 0, pero el excel arranca en 2
+    if staff:
+        for arg in staff.values():
+            ws.cell(Row_num,7).value = arg   
     ws.cell(Row_num,6).value = Ref_model_ID
     ws.cell(Row_num,11).value = Present_in_eTMF
     ws.cell(Row_num,12).value = Comments
@@ -179,19 +183,33 @@ def add_visit_from_report(Ref_ID, Generic_Variable_in_the_loop):
     '''Esta funcion checkea todas las visitas del reporte de visitas y se fija si estan en el archivo de SFR. Si estan, escribe en comments 
     diciendo que es la carta, si no esta agrega al final una linea con la info de que es lo que falta'''
     Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
+    margen_de_error = 7
+    margen_de_error = str(margen_de_error + ' days')
     for index, row in SFR['Ref Model ID'].iteritems():
         if SFR.loc[index,'Document date']==None:
             continue
-        if (SFR.loc[index,'Ref Model ID']==Ref_ID and
-            SFR.loc[index,'Document date']== Str_to_date(Generic_Variable_in_the_loop)):
+        doc_date = Str_to_date(Generic_Variable_in_the_loop)
+        if SFR.loc[index,'Document date']== doc_date:
+            diferencial = pd.Timedelta(0)
+        else:
+            if SFR.loc[index,"Ref Model Subtype"] == 'Confirmation Letter':
+                diferencial = doc_date - SFR.loc[index,"Document Date"]
+            else:
+                diferencial = SFR.loc[index,"Document Date"] - doc_date
+        if  (diferencial == pd.Timedelta(0)) or (abs(diferencial) < pd.Timedelta(margen_de_error)) and (SFR.loc[index,'Ref Model ID']==Ref_ID):               
             if SFR.loc[index,'Ref Model Subtype'] not in Letter_Types:
-                add_to_excel(index,'05.04.03','Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'Y','Errase Duplicated')
+                if SFR.loc[index,'Ref Model Subtype'] not in ['Confirmation Letter','Follow-up Letter', 'Monitoring Report']:
+                    add_to_excel(index,'05.04.03','Y',f"Please check this document",'Y','Please check this document')
+                else:
+                    add_to_excel(index,'05.04.03','Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'Y','Errase Duplicated')
+                SFR.drop(index,inplace=True)
                 continue #Si tengo un duplicado, no va a estar en letter types xq ya fue popeado. 
             else:
                 Letter_Types.remove(SFR.loc[index,'Ref Model Subtype'])
-                SFR.loc[index,'Ref Model ID']=np.nan
+                SFR.drop(index,inplace=True)
                 add_to_excel(index,'05.04.03','Y',f"{(SFR.loc[index,'Ref Model Subtype'])} from {Generic_Variable_in_the_loop} visit",'N')
     if Letter_Types!=[]:
+        #TODO que no me tome como missing visitas q todavia no ocurrieron pa
         add_to_excel(0,'05.04.03','N',f'{Letter_Types} missing from {Generic_Variable_in_the_loop} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
 
 def check_and_add(code, atribute):
@@ -209,9 +227,11 @@ check_and_add('05.03.01','Site_Visit_Initiation')
 check_and_add('05.04.03','Site_Visit_Interim')  
 check_and_add('05.04.08','Site_Visit_Closeout' )
 check_and_add('05.04.08','Telephone_Closeout' )
+#TODO ALGUNAS VECES LAS VISITAS CAMBIAN DE DIA, Y UN CFM Y FUP UEDE TENER DISTINTA FECHA. CONTEMPLAR
 
+#Extraigo informacion de IP SHIPMENT y lo meto en el Sitio. 
+# TODO QUE REVISE EL PROTOCOLO PARA VER Q REPORTE USAR porque LMAO SON DIFERENTES tmb lOS RDE RETURN
 
-#Extraigo informacion de IP SHIPMENT y lo meto en el Sitio
 IP_SHIPMENT= pd.read_excel('IP SHIPMENT.xlsx', sheet_name='Sheet',header=2)
 
 #Reduzco a mi sitio y a los envios recibidos
@@ -230,51 +250,52 @@ else:
 
 #Ahora busco en SFR si estan los IP shipments
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
-for shipment in Sitio.IP_Recieved:
-    Shipment_types=['Packing List','Confirmation','Acknowledgement']
-    Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
-    for documents in Shipment_types:
-        if Bacon.index[Bacon['Document Name'].str.contains(documents)].empty==False:
-            spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
-            Shipment_types.remove(documents)
-            if documents=='Acknowledgement':
-                add_to_excel(spam[0],'06.01.04','Y',f"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
-            else:
-                add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
-    if Shipment_types!=[]:
-        if len(Shipment_types) == 3:
-            Shipment_types = 'IP Packing list and IP Shipment confirmation'
-        add_to_excel(0,'06.01.04','N',f'{Shipment_types} missing for {shipment} shipment','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
-
-
-#Extraigo informacion de IP RETURN y lo meto en el Sitio
-IP_RETURN= pd.read_excel('IP RETURN.xlsx', sheet_name='Sheet',header=2)
-IP_RETURN=IP_RETURN.loc[IP_RETURN['Return Shipment Status']=='Received']
-IP_RETURN_Site=IP_RETURN.loc[IP_RETURN['Ship from Site Number']==int(Sitio.Site_Number)]
-
-if IP_RETURN_Site.empty: #Puede que no haya devuelto IP el sitio
-    Sitio.IP_Returned=None  
-else:
-    IP_Return_Dates=pd.to_datetime(IP_RETURN_Site['Date Received'])
-
-#Guardo los IP return
-    Sitio.IP_Returned=list(IP_RETURN_Site['Return Shipment Number'])
-
-SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.10']
-if Sitio.IP_Returned != None:
-    for shipment in Sitio.IP_Returned:    
+if Sitio.IP_Recieved != None:
+    for shipment in Sitio.IP_Recieved:
+        Shipment_types=['Packing List','Confirmation','Acknowledgement']
         Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
-        if Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)].empty==False:
-            spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)]
-            add_to_excel(spam[0],'06.01.10','Y',f"IP Return documentation for {shipment} shipping",'N')
-        else:
-            add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
-else:    
-    add_to_excel(SFR.index[SFR['Ref Model ID'] == '06.01.10'][0],'06.01.10','Y',f"No IP was returned",'N')
-#Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
+        for documents in Shipment_types:
+            if Bacon.index[Bacon['Document Name'].str.contains(documents)].empty==False:
+                spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
+                Shipment_types.remove(documents)
+                if documents=='Acknowledgement':
+                    add_to_excel(spam[0],'06.01.04','Y',f"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
+                else:
+                    add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
+        if Shipment_types!=[]:
+            if len(Shipment_types) == 3:
+                Shipment_types = 'IP Packing list and IP Shipment confirmation'
+            add_to_excel(0,'06.01.04','N',f'{Shipment_types} missing for {shipment} shipment','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+    #TODO this needs more work. no funciona bien, me da cualquier cosa
 
-add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
-add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+    #Extraigo informacion de IP RETURN y lo meto en el Sitio
+    IP_RETURN= pd.read_excel('IP RETURN.xlsx', sheet_name='Sheet',header=2)
+    IP_RETURN=IP_RETURN.loc[IP_RETURN['Return Shipment Status']=='Received']
+    IP_RETURN_Site=IP_RETURN.loc[IP_RETURN['Ship from Site Number']==int(Sitio.Site_Number)]
+
+    if IP_RETURN_Site.empty: #Puede que no haya devuelto IP el sitio
+        Sitio.IP_Returned=None  
+    else:
+        IP_Return_Dates=pd.to_datetime(IP_RETURN_Site['Date Received'])
+
+    #Guardo los IP return
+        Sitio.IP_Returned=list(IP_RETURN_Site['Return Shipment Number'])
+    if Sitio.IP_Returned != None:
+        SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.10']
+        if Sitio.IP_Returned != None:
+            for shipment in Sitio.IP_Returned:    
+                Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+                if Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)].empty==False:
+                    spam=Bacon.index[Bacon['Document Name'].str.contains(str(shipment), flags=re.I, regex=True)]
+                    add_to_excel(spam[0],'06.01.10','Y',f"IP Return documentation for {shipment} shipping",'N')
+                else:
+                    add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
+        else:    
+            add_to_excel(SFR.index[SFR['Ref Model ID'] == '06.01.10'][0],'06.01.10','Y',f"No IP was returned",'N')
+        #Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
+
+        add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+        add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
 
 #TODO Predecir CVs, Med Lics, y GCPs
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
@@ -384,6 +405,7 @@ for staff_member in Site_Members:
             #todo el tiempo
             df_cert = df.loc[(df['Ref Model Subtype'].str.contains(atribute, flags=re.I, regex=True)) | (df['Document Name'].str.contains(atribute, flags=re.I, regex=True))]                
             if atribute == 'GCP' or atribute == 'License':
+            #TODO hay un bug q cuando la licencia tiene como date antes q otra pero aplica hasta despues, se pornea todo. ver bien como arreglar
                 Ref_model= '05.02.07'
             else:
                 Ref_model= '05.03.03'
@@ -424,7 +446,7 @@ for staff_member in Site_Members:
                     
                     #Ahora extraigo el index correspondiente al row en la SFR original y agrego la info en los comments
                     comment = f"{atribute} certificate from {df_cert['Document date'][index].date()} to {df_cert['Expiration date'][index].date()}"
-                    add_to_excel(df_cert['index'][index],Ref_model,'Y',comment , 'N')  
+                    add_to_excel(df_cert['index'][index],Ref_model,'Y',comment , 'N', staff=f'{staff_member.name} {staff_member.last_name}')  
 
                     #si la diferencia de fecha entre la licencia/training y la fecha de inicio/licencia anterior es mayor a 0, significa q el training ocurrio antes de la fecha limite, ergo esta todo bien
                     #Pero si es menor a 0, significa q el certificado se expidio despues de la fecha limite.
@@ -432,20 +454,20 @@ for staff_member in Site_Members:
                     if type(Cert_date) == str:
                         Cert_date = datetime.datetime.strptime(Cert_date,'%d-%b-%Y')
                     if (df_cert['Document date'][index] - Cert_date) > datetime.timedelta(days=90):                             
-                        add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date.date()} to {df_cert['Document date'][index].date()}", 'Y', 'Collect from site')
+                        add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date.date()} to {df_cert['Document date'][index].date()}", 'Y', 'Collect from site',staff=(f'{staff_member.name} {staff_member.last_name}'))
                     Cert_date = df_cert['Expiration date'][index]          
                     
                 #checkeo la dif entre cuando vence la ultima licencia y cuando se fue del sitio o presente
                 if staff_member.end_date == 'Present':
                      if (datetime.datetime.today() - Cert_date) > datetime.timedelta(days=0):
-                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable')
+                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable', staff=f'{staff_member.name} {staff_member.last_name}')
                 else:
                     if type(staff_member.end_date) == str:
                         msg = pd.Timestamp(staff_member.end_date)
                     else:
                         msg = staff_member.end_date
                     if (msg - Cert_date) > datetime.timedelta(days=0):
-                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable')
+                        add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable', staff=f'{staff_member.name} {staff_member.last_name}')
                 
 
 #TODO si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
