@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # encoding : UTF-8
+#%%
 from os import chdir, getcwd
+
+from pandas._libs.tslibs import Timestamp
 wd='D:\\Script\\SFR'
 chdir(wd)
 
@@ -23,10 +26,10 @@ pd.options.mode.chained_assignment = None  # default='warn'
 #%%
 #Abro el archivo REPORT.xlsx para sacer la info necesaria
 wb = openpyxl.load_workbook('REPORT.xlsx')    
-ws=wb['Sheet1']
+ws=wb['Report']
 
 #Extraigo el numero del sitio y el protocolo asi despues hago magia
-Numero_de_sitio=ws["M2"].value
+Numero_de_sitio=int(ws["M2"].value)
 Nombre_de_archivo=str(Numero_de_sitio)+' COV Site File Review.xlsx'
 protocol = ws["K2"].value
 
@@ -146,8 +149,6 @@ class Sitio:
     IP_Recieved=[]
     IP_Returned=[]
     
-#%%
-#TODO FDFs y Data privacy
 
 #%%
 #usando el reporte de visitas, checkear que estan todas las cfm, fup, svr
@@ -164,9 +165,9 @@ if ('VISIT REPORT.csv'  in     os.listdir('.') and
 
 #Agarro del Visit report y agrego al Sitio cada una de las visitas, usando como nombre de atributo el tipo de visita, y el atributo es la fecha..
 #El atributo es una lista, y si hay mas de una visita del mismo tipo, lo appendea
-
+#Primero leo el visit report y filtro por el sitio
 Visit_Report= pd.read_excel( os.getcwd()+"\\VISIT.xlsx",header=2)
-
+Visit_Report = Visit_Report.loc[(Visit_Report["Protocol #"] == protocol) & (Visit_Report["Site #"] == Numero_de_sitio)]
 for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems():    
     try:
         Sitio.add_atribute(Visit_Report['Visit Type'][index_Visit_Report], Visit_Report['Visit End'][index_Visit_Report])
@@ -213,44 +214,48 @@ def add_visit_from_report(Ref_ID, visit_date):
     
     
     '''
+    if visit_date > datetime.datetime.today():
+        return None
+    df = SFR.loc[SFR["Ref Model ID"] == Ref_ID]
     Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
     margen_de_error = 7
-    margen_de_error = str(margen_de_error + ' days')
-    for index, row in SFR['Ref Model ID'].iteritems():
-        if SFR.loc[index,'Document date']==None:
+    margen_de_error = str(margen_de_error) + ' days'
+    for index, row in df['Ref Model ID'].iteritems():
+        fecha_documento = pd.to_datetime(df.loc[index,'Document date'] )
+        subtipo_de_documento = df.loc[index,'Ref Model Subtype']
+        codigo_del_documento = df.loc[index,'Ref Model ID']
+        if fecha_documento == None:
             continue
-        if SFR.loc[index,'Document date']== visit_date:
+        if fecha_documento == visit_date:
             diferencial = pd.Timedelta(0)
         else:
-            if SFR.loc[index,"Ref Model Subtype"] == 'Confirmation Letter':
-                diferencial = visit_date - SFR.loc[index,"Document Date"]
+            if subtipo_de_documento == 'Confirmation Letter':
+                diferencial = visit_date - fecha_documento
             else:
-                diferencial = SFR.loc[index,"Document Date"] - visit_date
-        if  (diferencial == pd.Timedelta(0)) or (abs(diferencial) < pd.Timedelta(margen_de_error)) and (SFR.loc[index,'Ref Model ID']==Ref_ID):               
-            if SFR.loc[index,'Ref Model Subtype'] not in Letter_Types:
-                if SFR.loc[index,'Ref Model Subtype'] not in ['Confirmation Letter','Follow-up Letter', 'Monitoring Report']:
-                    add_to_excel(index,Ref_ID,'Y',f"Please check this document",'Y','Please check this document')
+                diferencial = fecha_documento - visit_date
+        if  (diferencial == pd.Timedelta(0)) or (abs(diferencial) < pd.Timedelta(margen_de_error)) and (codigo_del_documento==Ref_ID):               
+            if subtipo_de_documento not in Letter_Types:
+                if subtipo_de_documento not in ['Confirmation Letter','Follow-up Letter', 'Monitoring Report']:
+                    add_to_excel(index,Ref_ID,'Y',"Please check this document",'Y','Please check this document')
                 else:
-                    add_to_excel(index,Ref_ID,'Y',f"Duplicated {(SFR.loc[index,'Ref Model Subtype'])} from {Str_to_date(visit_date)} visit",'Y','Errase Duplicated')
+                    add_to_excel(index,Ref_ID,'Y',f"Duplicated {(subtipo_de_documento)} from {(visit_date.date())} visit",'Y','Errase Duplicated')
                 SFR.drop(index,inplace=True)
                 continue #Si tengo un duplicado, no va a estar en letter types xq ya fue popeado. 
             else:
-                Letter_Types.remove(SFR.loc[index,'Ref Model Subtype'])
+                Letter_Types.remove(subtipo_de_documento)
                 SFR.drop(index,inplace=True)
-                add_to_excel(index,Ref_ID,'Y',f"{(SFR.loc[index,'Ref Model Subtype'])} from {Str_to_date(visit_date)} visit",'N')
+                add_to_excel(index,Ref_ID,'Y',f"{(subtipo_de_documento)} from {(visit_date.date())} visit",'N')
     if Letter_Types!=[]:
-        #TODO que no me tome como missing visitas q todavia no ocurrieron pa
-        add_to_excel(0,Ref_ID,'N',f'{Letter_Types} missing from {Str_to_date(visit_date)} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+        add_to_excel(0,Ref_ID,'N',f'{Letter_Types} missing from {(visit_date.date())} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
 
 def check_and_add(code, atribute):
     '''Esta Funcion agarra un Ref ID y se fija si en el objeto Sitio tengo un tipo de visita que corresponda a ese ID. Si esta, ejecuta add_visit_from_report'''
     if hasattr(Sitio,atribute):
-        for Visit_Report in getattr(Sitio,atribute):
-            add_visit_from_report(code, Visit_Report)
+        for visit_date in getattr(Sitio,atribute):
+            add_visit_from_report(code, visit_date)
         if atribute == 'Site_Visit_Closeout' or atribute == 'Telephone_Closeout':
             Sitio.Cerrado = True
 #%%
-#TODO Agregar todo los tipos de visita (booster por ejemplo)
 
 check_and_add('05.01.04','Site_Visit_Selection')
 check_and_add('05.03.01','Site_Visit_Initiation')            
@@ -262,12 +267,10 @@ check_and_add('05.04.05','Training/Booster Visit' )
 #%%
 
 #Extraigo informacion de IP SHIPMENT y lo meto en el Sitio. 
-# TODO QUE REVISE EL PROTOCOLO PARA VER Q REPORTE USAR porque LMAO SON DIFERENTES tmb lOS RDE RETURN
-
-if protocolo == "RPC01-3101":
-    header = 2
+if protocol == "RPC01-3101":
+    header = 1
 else:
-    header = 3
+    header = 2
 IP_SHIPMENT= pd.read_excel('IP SHIPMENT.xlsx', sheet_name='Sheet',header=header)
 
 #Reduzco a mi sitio y a los envios recibidos
@@ -295,7 +298,7 @@ if Sitio.IP_Recieved != None:
                 spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
                 Shipment_types.remove(documents)
                 if documents=='Acknowledgement':
-                    add_to_excel(spam[0],'06.01.04','Y',f"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
+                    add_to_excel(spam[0],'06.01.04','Y',"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
                 else:
                     add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
         if Shipment_types!=[]:
@@ -327,16 +330,17 @@ if Sitio.IP_Recieved != None:
                 else:
                     add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
         else:    
-            add_to_excel(SFR.index[SFR['Ref Model ID'] == '06.01.10'][0],'06.01.10','Y',f"No IP was returned",'N')
+            add_to_excel(SFR.index[SFR['Ref Model ID'] == '06.01.10'][0],'06.01.10','Y',"No IP was returned",'N')
         #Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
 
         add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
         add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+else:
+    add_to_excel(0,"06.01.04","N","Site never had IP. Shipping documentation, IP temperature log, IP accountability logs, etc are not applicable","N")
 #%%
-#TODO Predecir CVs, Med Lics, y GCPs
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
-if 'CONTACT REPORT.csv' in os.listdir('.') and 'CONTACT REPORT.xlsx' not in os.listdir('.'):
-    fname = os.getcwd()+"\\CONTACT REPORT.csv"
+if (f"CONTACT {prot_num}.csv") in os.listdir('.') and (f"CONTACT {prot_num}.xlsx") not in os.listdir('.'):
+    fname = os.getcwd()+"\\"+(f"CONTACT {prot_num}.csv")
     excel = win32.gencache.EnsureDispatch('Excel.Application')
     wb = excel.Workbooks.Open(fname)
     fname=fname.split('.')[0]+".xlsx"
@@ -345,8 +349,9 @@ if 'CONTACT REPORT.csv' in os.listdir('.') and 'CONTACT REPORT.xlsx' not in os.l
     excel.Application.Quit()
     Contact_Report= pd.read_excel(fname,header=0)
 else:
-    Contact_Report= pd.read_excel(os.getcwd()+"\\CONTACT REPORT.xlsx",header=0)
+    Contact_Report= pd.read_excel(os.getcwd()+f"\\CONTACT {prot_num}.xlsx",header=0)
 SFR= pd.read_excel(filename, sheet_name='Site',header=0)
+Contact_Report= Contact_Report.loc[(Contact_Report["Site #"] == Numero_de_sitio)]
 Contact_Report=Contact_Report[['Role','First Name', 'Last Name', 'Start Date','End Date']]
 
 class Site_Staff:
@@ -388,10 +393,14 @@ class Site_Staff:
         elif self.role == 'Sub-Investigator':
             self.GCP = True
             self.License = True
+        if type(start_date) == str:
+            start_date = pd.Timestamp(start_date)
         self.start_date = start_date
         if pd.isna(end_date):
             self.end_date = 'Present'
         else:
+            if type(end_date) == str:
+                end_date =  pd.Timestamp(end_date)
             self.end_date = end_date
 
 Names= Contact_Report['First Name'].tolist()
@@ -406,10 +415,9 @@ for nombres,apellidos,funcion,inicio,fin in zip(Names,Last_names,Roles,Starting_
     Site_Members.append(Site_Staff(nombres,apellidos,funcion,inicio,fin))
 
 Sitio.Site_members=Site_Members
-
+#%%
 #Una vez que tengo la informacion guardada la uso para que haga cosas
 
-import datetime
 pd.options.mode.chained_assignment = None  # default='warn'
 
 SFR= pd.read_excel(filename, sheet_name='Site',header=0)
@@ -423,7 +431,7 @@ SFR_trainings= SFR.loc[(SFR['Ref Model ID'] == '05.02.07') | (SFR['Ref Model ID'
 Certificates = ['GCP', 'EDC', 'IATA', 'License']
 
 #Parseo por todos los staff members
-for staff_member in Site_Members:    
+for staff_member in Sitio.Site_members:    
     #Reduzco la df a solo lo que tiene el apellido del staff member en el nombre del archivo o en la columna de "site personnel name" (esta ultima a veces esta vacia xq la mtadata es malisima)
     df = SFR_trainings.loc[(SFR_trainings['Site personnel name'].str.contains(staff_member.last_name,na=False, flags=re.I, regex=True)) | (SFR_trainings['Document Name'].str.contains(staff_member.last_name,na=False, flags=re.I, regex=True))]
   
@@ -489,12 +497,12 @@ for staff_member in Site_Members:
                             Cert_date = datetime.datetime.strptime(Cert_date,'%d-%b-%Y')
                         if (df_cert['Document date'][index] - Cert_date) > datetime.timedelta(days=90):                             
                             add_to_excel(df_cert['index'][index],Ref_model,'N',f"Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} covering from {Cert_date.date()} to {df_cert['Document date'][index].date()}", 'Y', 'Collect from site',staff=(f'{staff_member.name} {staff_member.last_name}'))
-                        Cert_date = df_cert['Expiration date'][index]          
+                        Cert_date = pd.to_datetime(df_cert['Expiration date'][index]          )
                     
                 #checkeo la dif entre cuando vence la ultima licencia y cuando se fue del sitio o presente
                 if atribute != 'EDC':
                     if staff_member.end_date == 'Present':
-                         if (datetime.datetime.today() - Cert_date) > datetime.timedelta(days=0):
+                         if (pd.Timestamp(datetime.datetime.today().date()) - pd.Timestamp(Cert_date)) > datetime.timedelta(days=0):
                             add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable', staff=f'{staff_member.name} {staff_member.last_name}')
                     else:
                         if type(staff_member.end_date) == str:
@@ -503,27 +511,131 @@ for staff_member in Site_Members:
                             msg = staff_member.end_date
                         if (msg - Cert_date) > datetime.timedelta(days=0):
                             add_to_excel(0,Ref_model, 'N', f'Missing {atribute} certificate for {staff_member.last_name}, {staff_member.name} from {Cert_date.date()} to {msg}.', 'Y', 'Collect from site, if applicable', staff=f'{staff_member.name} {staff_member.last_name}')
-                
+#%%
+#CVs
+SFR = pd.read_excel(filename, sheet_name='Site',header=0)
+cv = SFR.loc[(((SFR["Ref Model ID"] == "05.02.04") | (SFR["Ref Model ID"] == "05.02.05")) | (SFR["Ref Model ID"] == "05.02.06")) & (~(SFR["Document Name"]).isna())]      
+lista_pi_y_subi = [(investigator.last_name, investigator.name, investigator.role)  for investigator in Sitio.Site_members if (investigator.role == 'Principal Investigator' or  investigator.role == 'Sub-Investigator')]
+for investigator in lista_pi_y_subi:    
+    if cv.loc[cv["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].empty:
+        if investigator[2] == 'Principal Investigator':
+            codigo = "05.02.04"
+        elif  investigator[2] == 'Sub-Investigator':
+            codigo = "05.02.05"
+        add_to_excel(0,codigo, "N", f"Missing {investigator[0]}, {investigator[1]} CV", "Y", "Collect from site", f"{investigator[0]}, {investigator[1]}")
+    else:
+        indice = cv.loc[cv["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].index.values[0]
+        add_to_excel(indice,(cv["Ref Model ID"][indice]), "Y", f"{investigator[0]}, {investigator[1]} CV", "N")
+#%%
+#Data Privacy, basicamente lo mismo que los CVs, pero con la condicion que start date > nov2018
+SFR = pd.read_excel(filename, sheet_name='Site',header=0)
+dp = SFR.loc[(SFR["Ref Model ID"] == "05.02.11") & (~(SFR["Document Name"]).isna())]      
+lista_pi_y_subi = [(investigator.last_name, investigator.name, pd.Timestamp(investigator.start_date), investigator.end_date)  for investigator in Sitio.Site_members if (investigator.role == 'Principal Investigator' or  investigator.role == 'Sub-Investigator')]
+
+for investigator in lista_pi_y_subi:    
+    if (investigator[3]!= "Present") and  (pd.Timestamp ("2019-01-01") <= investigator[3]):
+        if dp.loc[cv["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].empty:
+            add_to_excel(0,"05.02.11", "N", f"Missing Data Privacy Form for {investigator[0]}, {investigator[1]}", "Y", "Collect from site", f"{investigator[0]}, {investigator[1]}")
+        else:
+            indice = dp.loc[cv["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].index.values[0]
+            add_to_excel(indice,(dp["Ref Model ID"][indice]), "Y", f"Data Privacy for {investigator[0]}, {investigator[1]}", "N")
+
+#%%
+#FDFs. No se me ocurre otra manera de hacerlo q repetir el codigo
+#Receptos
+
+# FDF (3 kinds) - Receptos (start, as of Sept 2013), Celgene (effective Mar2016), BMS (effect Jan2020)
+fdf = SFR.loc[(SFR["Ref Model ID"] == "05.02.10")& (~SFR["Document Name"].isna())]
+fdf["Version"] = pd.Series(dtype="object")
+for index,row in fdf.iterrows():
+    try:
+        document_date = pd.Timestamp(fdf["Document date"][index])
+        if (document_date > pd.Timestamp("2013-09-01")) and (document_date < pd.Timestamp("2016-03-01")):
+            version = "Receptos"
+        elif (document_date > pd.Timestamp("2016-03-01")) and (document_date < pd.Timestamp("2020-01-01")):
+            version = "Celgene"
+        else:
+            version = "BMS"
+        fdf["Version"][index] = version
+    except:
+        fdf["Version"][index] = "Check this document"
+
+
+for investigator in lista_pi_y_subi:    
+    inv_fdf = fdf.loc[fdf["Site personnel name"].str.contains(investigator[0], regex=True,flags=re.IGNORECASE)]
+    if investigator[2]< pd.Timestamp("2016-03-01"):
+        if inv_fdf.loc[inv_fdf["Version"] == "Receptos"].empty:
+            add_to_excel(0,"05.02.10", "N", f"Missing Receptos FDF for {investigator[0]}, {investigator[1]}", "Collect from Site")
+        else:
+            indice = inv_fdf.loc[ inv_fdf.loc[inv_fdf["Version"] == "Receptos"]].index.values[0]
+            add_to_excel(indice,"05.02.10","Y", f"Receptos FDF for {investigator[0]}, {investigator[1]}", "N")
+    if investigator[2]< pd.Timestamp("2020-01-01") and ((investigator[3]=="Present") or (investigator[3] > pd.Timestamp("2016-03-01"))):
+        if inv_fdf.loc[inv_fdf["Version"] == "Celgene"].empty:
+            add_to_excel(0,"05.02.10", "N", f"Missing Celgene FDF for {investigator[0]}, {investigator[1]}", "Collect from Site")
+        else:
+            indice = inv_fdf.loc[ inv_fdf["Version"] == "Celgene"].index.values[0]
+            add_to_excel(indice,"05.02.10","Y", f"Celgene FDF for {investigator[0]}, {investigator[1]}", "N")
+    if (investigator[3]=="Present") or (investigator[3] > pd.Timestamp("2020-01-15")):
+            if inv_fdf.loc[inv_fdf["Version"] == "BMS"].empty:
+                add_to_excel(0,"05.02.10", "N", f"Missing BMS FDF for {investigator[0]}, {investigator[1]}", "Collect from Site")
+            else:
+                indice = inv_fdf.loc[ inv_fdf["Version"] == "BMS"].index.values[0]
+                add_to_excel(indice,"05.02.10","Y", f"BMS FDF for {investigator[0]}, {investigator[1]}", "N")
+
+
+
+
 #%%
 #TODO si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
 #%%
-#TODO PAs y IBs. Usando la visita de iniciacion puedo predecir que PAs/IBs tendria que tener. Puedo usar lo mismo para los irb approvals.
-#Seguir esto, pero con un reporte en serio. Asi en el aire no se puede
+#TODO, integrar esto a el wizzard de configuracion
 #IB
-IB = {
-    "06" : pd.Timestamp("2015-02-09"),
-    "07" : pd.Timestamp("2015-05-29"),
-    "08" : pd.Timestamp("2016-05-02"),
-    "09" : pd.Timestamp("2017-06-12"),
-    "10": pd.Timestamp("2018-04-30"),
-    "11": pd.Timestamp("2019-04-26")
-     }
+SFR = pd.read_excel(filename, sheet_name='Site',header=0)
+if protocol == "RPC01-3101":
+    IB = {
+        "06" : pd.Timestamp("2015-02-09"),
+        "07" : pd.Timestamp("2015-05-29"),
+        "08" : pd.Timestamp("2016-05-02"),
+        "09" : pd.Timestamp("2017-06-12"),
+        "10" : pd.Timestamp("2018-04-30"),
+        "11" : pd.Timestamp("2019-04-29")
+         }
+    PA = {    
+        "01" : pd.Timestamp("2015-03-30"),
+        "02" : pd.Timestamp("2016-06-07"),
+        "03" : pd.Timestamp("2017-06-07"),
+        "04" : pd.Timestamp("2017-12-07"),
+        "05" : pd.Timestamp("2018-05-29"),
+        "06": pd.Timestamp("2018-11-16"),
+        "07": pd.Timestamp("2019-05-20")
+         }
+else:
+    IB = {
+        "06" : pd.Timestamp("2015-02-09"),
+        "07" : pd.Timestamp("2015-05-29"),
+        "08" : pd.Timestamp("2016-05-02"),
+        "09" : pd.Timestamp("2017-06-12"),
+        "10" : pd.Timestamp("2018-04-30"),
+        "11" : pd.Timestamp("2019-04-26"),
+        "12" : pd.Timestamp("2020-10-01")
+         }
+    PA = {    
+        "01" : pd.Timestamp("2015-04-20"),
+        "02" : pd.Timestamp("2015-05-08"),
+        "03" : pd.Timestamp("2016-06-07"),
+        "04" : pd.Timestamp("2017-06-07"),
+        "05" : pd.Timestamp("2018-05-29"),
+        "06": pd.Timestamp("2018-12-05"),
+        "07": pd.Timestamp("2019-05-22"),
+        "08": pd.Timestamp("2020-10-01")
+         }
 regex = re.compile(r'((\d)?\d)')
-sp = SFR.loc[(SFR["Ref Model ID"] ==  "05.02.01")]
+sp = SFR.loc[(SFR["Ref Model ID"] ==  "05.02.01") & (~(SFR["Document Name"]).isna())]
 sp["Version"] = pd.Series(dtype="object")
 for index,row in sp.iterrows():
     try:
-        version = regex.search(sp["Study Item Name"][index]).group()
+        version = regex.search(sp["Document Name"][index]).group()
+        
         if len(version) == 1:
             version = "0"+version
         sp["Version"][index] = version
@@ -532,7 +644,10 @@ for index,row in sp.iterrows():
         
 
 ib_applicable = []
-spam = Visit_Report.loc[(Visit_Report['Site #'] == Numero_de_sitio) & (Visit_Report["Visit Type"] == "Site Visit Initiation")]
+#re leo el visit_report, por las dudas
+Visit_Report= pd.read_excel( os.getcwd()+"\\VISIT.xlsx",header=2)
+Visit_Report = Visit_Report.loc[(Visit_Report["Protocol #"] == protocol) & (Visit_Report["Site #"] == Numero_de_sitio)]
+spam = Visit_Report.loc[Visit_Report["Visit Type"] == "Site Visit Initiation"]
 spam.reset_index(inplace=True)
 start_date = spam["Visit Start"][0]
 egg = Visit_Report.loc[(Visit_Report['Site #'] == Numero_de_sitio) & ((Visit_Report["Visit Type"] == "Site Visit Closeout") | (Visit_Report["Visit Type"] == "Telephone Closeout"))]
@@ -551,13 +666,75 @@ for key, value in IB.items():
         
 if starting_ib not in ib_applicable:
     ib_applicable.insert(0,starting_ib)
-
-ib_present = sp.loc[ (sp["Version"].isin(ib_applicable))]["Version"].to_list()
-msg = ib_applicable.copy()
-for version in ib_present:
+#Agrego al excel la descripcion de los IBSP encontrados
+ib_agregados = []
+for index,row in sp.iterrows():
+    version = str(sp['Version'][index])
     if version in ib_applicable:
         ib_applicable.remove(version)
+    if version in ib_agregados:
+        add_to_excel(index,"05.02.01", "Y", f"Potential duplicate for IB v{version} Signature Page", "Y", "Check if this is a duplicate")
+        
+    else:
+        add_to_excel(index,"05.02.01", "Y", f"IB v{version} Signature Page", "N")
+        ib_agregados.append(version)
+    
+
+if ib_applicable:
+    for ibs in ib_applicable:
+        add_to_excel(index,"05.02.01", "N", f"Missing IB v{ibs} Signature Page", "Y", "Collect from site")
+        
+#PA
+
+SFR = pd.read_excel(filename, sheet_name='Site',header=0)
+regex = re.compile(r'((\d)?\d)')
+sp = SFR.loc[((SFR["Ref Model ID"] ==  "05.02.03") | (SFR["Ref Model ID"] ==  "05.02.02")) & (~(SFR["Document Name"]).isna())]
+sp["Version"] = pd.Series(dtype="object")
+for index,row in sp.iterrows():
+    try:
+        version = regex.search(sp["Document Name"][index]).group()        
+        if len(version) == 1:
+            version = "0"+version
+        sp["Version"][index] = version
+    except:
+        sp["Version"][index] = "Check this document"
+        
+
+pa_applicable = []
+#para determinar con que PA empieza:
+periodo_gracia = datetime.timedelta(days=60)
+for key, value in PA.items():        
+    if (start_date - value)> datetime.timedelta(days=0):       
+        starting_pa = key
+    if ((value - start_date) > datetime.timedelta(days=0)) and ((end_date - value) > periodo_gracia):
+        pa_applicable.append(key)
+        
+if starting_pa not in pa_applicable:
+    pa_applicable.insert(0,starting_pa)
+#Agrego al excel la descripcion de los PA SP encontrados
+pa_agregados = []
+for index,row in sp.iterrows():
+    version = str(sp['Version'][index])
+    if version == "01":
+        code = "05.02.02"
+    else:
+        code = "05.02.03"
+    if version in pa_applicable:
+        pa_applicable.remove(version)
+    if version in pa_agregados:
+        add_to_excel(index,code, "Y", f"Potential duplicate for PA v{version} Signature Page", "Y", "Check if this is a duplicate")
+        
+    else:
+        add_to_excel(index,code, "Y", f"PA v{version} Signature Page", "N")
+        pa_agregados.append(version)
+    
+
+if pa_applicable:
+    for pas in pa_applicable:
+        add_to_excel(index,code, "N", f"Missing PA v{pas} Signature Page", "Y", "Collect from site")
+
 #%%
+#mega TODO
 # import json
 # if 'study_data.json' not in os.listdir('.'):
 #     Study_data = {}
@@ -598,7 +775,7 @@ SFR['Document date']=pd.to_datetime(SFR['Document date'])
 SFR_FDA = SFR.loc[(SFR['Ref Model ID'] == '05.02.08') & ~(SFR['Document date'].isna() )]
 SFR_FDA.sort_values(by='Document date', inplace=True)
 SFR_FDA.reset_index(inplace=True)
-if (SFR_FDA['Document date'][0] - datetime.datetime.strptime(Sitio.Site_Visit_Initiation[0], '%d-%b-%Y')) > datetime.timedelta(days=365):
+if (SFR_FDA['Document date'][0] - Sitio.Site_Visit_Initiation[0]) > datetime.timedelta(days=365):
     add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"First FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Initiation in {Sitio.Site_Visit_Initiation[0]}. Please check",'N')
 SFR_FDA=SFR_FDA.tail(1)
 SFR_FDA.reset_index(inplace=True)
@@ -613,6 +790,8 @@ elif (datetime.datetime.today() - SFR_FDA['Document date'][0]) > datetime.timede
     add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()}. Please check if we are not missing a more updated version.", "N")
 
 #TODO encontrar manera que se me habia ocurrido pero ahora no de saber si el sitio es local o central lab/irb. y pedir todolo necesario, incluyendo membership list 
+#%%
+#TODO FDFs y Data privacy
 
 
 
@@ -627,3 +806,5 @@ elif (datetime.datetime.today() - SFR_FDA['Document date'][0]) > datetime.timede
 
 
 # #Grabo el nuevo excel con otro nombre
+
+# %%
