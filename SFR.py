@@ -542,9 +542,8 @@ for investigator in lista_pi_y_subi:
 
 #%%
 #FDFs. No se me ocurre otra manera de hacerlo q repetir el codigo
-#Receptos
-
 # FDF (3 kinds) - Receptos (start, as of Sept 2013), Celgene (effective Mar2016), BMS (effect Jan2020)
+#primero agrego una columna llamada version, asi puedo diferenciar que FDF es
 fdf = SFR.loc[(SFR["Ref Model ID"] == "05.02.10")& (~SFR["Document Name"].isna())]
 fdf["Version"] = pd.Series(dtype="object")
 for index,row in fdf.iterrows():
@@ -560,8 +559,9 @@ for index,row in fdf.iterrows():
     except:
         fdf["Version"][index] = "Check this document"
 
-
+#ahora, dependiendo de cuando arranco el investigador, y cuando termino puedo predecir que FDFs necesita, y me fijo si estan
 for investigator in lista_pi_y_subi:    
+    #filtro las FDF por el investigator
     inv_fdf = fdf.loc[fdf["Site personnel name"].str.contains(investigator[0], regex=True,flags=re.IGNORECASE)]
     if investigator[2]< pd.Timestamp("2016-03-01"):
         if inv_fdf.loc[inv_fdf["Version"] == "Receptos"].empty:
@@ -585,8 +585,6 @@ for investigator in lista_pi_y_subi:
 
 
 
-#%%
-#TODO si es local o central tmb lo puedo sacar del log (COMO?? CUANDO TENGAS IDEAS PLASMALAS)
 #%%
 #TODO, integrar esto a el wizzard de configuracion
 #IB
@@ -726,8 +724,7 @@ for index,row in sp.iterrows():
         
     else:
         add_to_excel(index,code, "Y", f"PA v{version} Signature Page", "N")
-        pa_agregados.append(version)
-    
+        pa_agregados.append(version)   
 
 if pa_applicable:
     for pas in pa_applicable:
@@ -788,23 +785,3 @@ if Sitio.Cerrado == True:
             add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Telephone Closeout in {Sitio.Telephone_Closeout[0]}. Please check if this is the latest one applicable", "N")        
 elif (datetime.datetime.today() - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
     add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()}. Please check if we are not missing a more updated version.", "N")
-
-#TODO encontrar manera que se me habia ocurrido pero ahora no de saber si el sitio es local o central lab/irb. y pedir todolo necesario, incluyendo membership list 
-#%%
-#TODO FDFs y Data privacy
-
-
-
-
-
-
-
-
-
-
-
-
-
-# #Grabo el nuevo excel con otro nombre
-
-# %%
