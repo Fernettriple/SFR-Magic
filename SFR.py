@@ -271,7 +271,9 @@ if protocol == "RPC01-3101":
     header = 1
 else:
     header = 2
-IP_SHIPMENT= pd.read_excel('IP SHIPMENT.xlsx', sheet_name='Sheet',header=header)
+    
+
+IP_SHIPMENT= pd.read_excel((f'{prot_num} shipment'+'.xlsx'), sheet_name='Sheet',header=header)
 
 #Reduzco a mi sitio y a los envios recibidos
 IP_SHIPMENT=IP_SHIPMENT.loc[IP_SHIPMENT['Shipment Status']=='Received']
@@ -291,10 +293,10 @@ else:
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
 if Sitio.IP_Recieved != None:
     for shipment in Sitio.IP_Recieved:
-        Shipment_types=['Packing List','Confirmation','Acknowledgement']
+        Shipment_types=['Packing order','Shipment confirmation','Acknowledgement of Receipt']
         Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
         for documents in Shipment_types:
-            if Bacon.index[Bacon['Document Name'].str.contains(documents)].empty==False:
+            if Bacon.index[Bacon['Document Name'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
                 spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
                 Shipment_types.remove(documents)
                 if documents=='Acknowledgement':
@@ -302,13 +304,17 @@ if Sitio.IP_Recieved != None:
                 else:
                     add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
         if Shipment_types!=[]:
+            if 'Acknowledgement of Receipt' in Shipment_types:
+                Shipment_types.remove('Acknowledgement of Receipt')
             if len(Shipment_types) == 3:
-                Shipment_types = 'IP Packing list and IP Shipment confirmation'
-            add_to_excel(0,'06.01.04','N',f'{Shipment_types} missing for {shipment} shipment','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+                msg = 'IP Packing list and IP Shipment confirmation'
+            else:
+                msg = ', '.join(Shipment_types)
+            add_to_excel(0,'06.01.04','N',f'{msg} missing for {shipment} shipment','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
     #TODO this needs more work. no funciona bien, me da cualquier cosa
 
     #Extraigo informacion de IP RETURN y lo meto en el Sitio
-    IP_RETURN= pd.read_excel('IP RETURN.xlsx', sheet_name='Sheet',header=header)
+    IP_RETURN= pd.read_excel((f'{prot_num} return'+'.xlsx'), sheet_name='Sheet',header=header)
     IP_RETURN=IP_RETURN.loc[IP_RETURN['Return Shipment Status']=='Received']
     IP_RETURN_Site=IP_RETURN.loc[IP_RETURN['Ship from Site Number']==int(Sitio.Site_Number)]
 
@@ -331,12 +337,15 @@ if Sitio.IP_Recieved != None:
                     add_to_excel(0,'06.01.10','N',f"Missing IP Return Documentation for {str(shipment)} shipping",'Y','Collect from site')
         else:    
             add_to_excel(SFR.index[SFR['Ref Model ID'] == '06.01.10'][0],'06.01.10','Y',"No IP was returned",'N')
-        #Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
-
-        add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
-        add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+    #Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
+    
+    add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+    add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
 else:
     add_to_excel(0,"06.01.04","N","Site never had IP. Shipping documentation, IP temperature log, IP accountability logs, etc are not applicable","N")
+    
+    
+    
 #%%
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
 if (f"CONTACT {prot_num}.csv") in os.listdir('.') and (f"CONTACT {prot_num}.xlsx") not in os.listdir('.'):
@@ -571,7 +580,7 @@ for investigator in lista_pi_y_subi:
             add_to_excel(indice,"05.02.10","Y", f"Receptos FDF for {investigator[0]}, {investigator[1]}", "N")
     if investigator[2]< pd.Timestamp("2020-01-01") and ((investigator[3]=="Present") or (investigator[3] > pd.Timestamp("2016-03-01"))):
         if inv_fdf.loc[inv_fdf["Version"] == "Celgene"].empty:
-            add_to_excel(0,"05.02.10", "N", f"Missing Celgene FDF for {investigator[0]}, {investigator[1]}", "Collect from Site")
+            add_to_excel(0,"05.02.10", "N", f"Missing Celgene FDF for {investigator[0]}, {investigator[1]}", "Y","Collect from Site")
         else:
             indice = inv_fdf.loc[ inv_fdf["Version"] == "Celgene"].index.values[0]
             add_to_excel(indice,"05.02.10","Y", f"Celgene FDF for {investigator[0]}, {investigator[1]}", "N")
@@ -627,6 +636,9 @@ else:
         "07": pd.Timestamp("2019-05-22"),
         "08": pd.Timestamp("2020-10-01")
          }
+    
+    
+#IB
 regex = re.compile(r'((\d)?\d)')
 sp = SFR.loc[(SFR["Ref Model ID"] ==  "05.02.01") & (~(SFR["Document Name"]).isna())]
 sp["Version"] = pd.Series(dtype="object")
@@ -664,6 +676,9 @@ for key, value in IB.items():
         
 if starting_ib not in ib_applicable:
     ib_applicable.insert(0,starting_ib)
+    
+#Copio la lista de ib aplicables para despues ponerlo en la parte de IRB
+irb_ib_approvals = ib_applicable.copy()
 #Agrego al excel la descripcion de los IBSP encontrados
 ib_agregados = []
 for index,row in sp.iterrows():
@@ -709,6 +724,8 @@ for key, value in PA.items():
         
 if starting_pa not in pa_applicable:
     pa_applicable.insert(0,starting_pa)
+#Copio la lista de ib aplicables para despues ponerlo en la parte de IRB
+irb_pa_approvals = pa_applicable.copy()
 #Agrego al excel la descripcion de los PA SP encontrados
 pa_agregados = []
 for index,row in sp.iterrows():
@@ -729,6 +746,24 @@ for index,row in sp.iterrows():
 if pa_applicable:
     for pas in pa_applicable:
         add_to_excel(index,code, "N", f"Missing PA v{pas} Signature Page", "Y", "Collect from site")
+#%%
+#Pequeño IRB reminder
+msg = f"Please check that IRB approvals for PA {', '.join(irb_pa_approvals)} and IB {', '.join(irb_ib_approvals)} are present."
+add_to_excel(0,"04.01.02", "N",msg, "Y", "Check")
+#%%
+#IRB membership list
+SFR= pd.read_excel(filename, sheet_name='Site',header=0)
+SFR['Document date']=pd.to_datetime(SFR['Document date'])
+
+SFR_irb = SFR.loc[(SFR['Ref Model ID'] == '04.01.03') & ~(SFR['Document date'].isna() )]
+if SFR_irb.empty:
+    add_to_excel(0, '04.01.03', 'N', f"IRB membership list missing. Please provide an updated version.", "N")
+SFR_irb.sort_values(by='Document date', inplace=True)
+SFR_irb=SFR_irb.tail(1)
+SFR_irb.reset_index(inplace=True)
+if (datetime.datetime.today() - SFR_irb['Document date'][0]) > datetime.timedelta(days=730):
+    add_to_excel(0, '04.01.03', 'N', f"Last IRB membership list is from {SFR_irb['Document date'][0].date()}. Please provide an updated version.", "N")
+
 
 #%%
 #mega TODO
