@@ -218,7 +218,8 @@ def add_visit_from_report(Ref_ID, visit_date):
         return None
     df = SFR.loc[SFR["Ref Model ID"] == Ref_ID]
     Letter_Types=['Confirmation Letter','Follow-up Letter', 'Monitoring Report']
-    margen_de_error = 7
+    #TODO PARA las confirmation letter, usar tmb "planned date", porq a veces si se postearga la visita la confirmation letter te queda en cualquiera
+    margen_de_error = 14
     margen_de_error = str(margen_de_error) + ' days'
     for index, row in df['Ref Model ID'].iteritems():
         fecha_documento = pd.to_datetime(df.loc[index,'Document date'] )
