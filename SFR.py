@@ -4,8 +4,6 @@
 from os import chdir, getcwd
 
 from pandas._libs.tslibs import Timestamp
-wd='D:\\Script\\SFR'
-chdir(wd)
 
 import openpyxl
 from openpyxl import Workbook, load_workbook
@@ -40,22 +38,22 @@ if protocol == "RPC01-3101":
 else:
     prot_num = '3102'
     
-if ((f'{prot_num} shipment'+'.xlsx') not in os.listdir('.')) and ((f'{prot_num} shipment'+'.xls') in os.listdir('.')):
-    fname = os.getcwd()+("\\"+""f'{prot_num} shipment'+'.xls')
-    excel = win32.gencache.EnsureDispatch('Excel.Application')
-    wb = excel.Workbooks.Open(fname)
-    wb.SaveAs(fname+"x", FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-    wb.Close()                               #FileFormat = 56 is for .xls extension
-    excel.Application.Quit()
-
-if (f'{prot_num} return'+'.xlsx') not in os.listdir('.'):
-    if (f'{prot_num} return'+'.xls') in os.listdir('.'):
-        fname = os.getcwd()+("\\"+f'{prot_num} return'+'.xls')
-    excel = win32.gencache.EnsureDispatch('Excel.Application')
-    wb = excel.Workbooks.Open(fname)
-    wb.SaveAs(fname+"x", FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-    wb.Close()                               #FileFormat = 56 is for .xls extension
-    excel.Application.Quit()
+while 1:
+    if ((f'{prot_num} shipment'+'.xlsx') not in os.listdir('.')) and ((f'{prot_num} shipment'+'.xls') in os.listdir('.')):
+        input("Por favor, para que el programa funcione el reporte de IP tiene que estar presente en la misma carpeta. Coloquelo y aprete enter")
+    else:
+        break
+while 1:
+    if (f'{prot_num} return'+'.xlsx') not in os.listdir('.'):
+        input("Por favor, para que el programa funcione el reporte de IP devueltos tiene que estar presente en la misma carpeta. Coloquelo y aprete enter")
+    else:
+        break
+while 1:
+    if ('VISIT REPORT.csv'  in     os.listdir('.') and 
+        'VISIT REPORT.xlsx' not in os.listdir('.')):
+        input("Por favor, para que el programa funcione el reporte visitas tiene que estar presente en la misma carpeta. Coloquelo y aprete enter")
+    else:
+        break
 
 
 
@@ -152,15 +150,6 @@ class Sitio:
 
 #%%
 #usando el reporte de visitas, checkear que estan todas las cfm, fup, svr
-if ('VISIT REPORT.csv'  in     os.listdir('.') and 
-    'VISIT REPORT.xlsx' not in os.listdir('.')):
-    fname = os.getcwd()+"\\VISIT REPORT.csv"
-    excel = win32.gencache.EnsureDispatch('Excel.Application')
-    wb = excel.Workbooks.Open(fname)
-    fname=fname.split('.')[0]+".xlsx"
-    wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-    wb.Close()                               #FileFormat = 56 is for .xls extension
-    excel.Application.Quit()
     
 
 #Agarro del Visit report y agrego al Sitio cada una de las visitas, usando como nombre de atributo el tipo de visita, y el atributo es la fecha..
@@ -303,7 +292,12 @@ if Sitio.IP_Recieved != None:
                 if documents=='Acknowledgement':
                     add_to_excel(spam[0],'06.01.04','Y',"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
                 else:
-                    add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
+                    try:
+                        add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
+                    except IndexError as e:
+                        print(f"Error al procesar {documents} for {shipment} shipping.")
+                        print(f"Motivo: {e}")
+                        pass
         if Shipment_types!=[]:
             if 'Acknowledgement of Receipt' in Shipment_types:
                 Shipment_types.remove('Acknowledgement of Receipt')
@@ -349,17 +343,12 @@ else:
     
 #%%
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
-if (f"CONTACT {prot_num}.csv") in os.listdir('.') and (f"CONTACT {prot_num}.xlsx") not in os.listdir('.'):
-    fname = os.getcwd()+"\\"+(f"CONTACT {prot_num}.csv")
-    excel = win32.gencache.EnsureDispatch('Excel.Application')
-    wb = excel.Workbooks.Open(fname)
-    fname=fname.split('.')[0]+".xlsx"
-    wb.SaveAs(fname, FileFormat = 51)    #FileFormat = 51 is for .xlsx extension
-    wb.Close()                               #FileFormat = 56 is for .xls extension
-    excel.Application.Quit()
-    Contact_Report= pd.read_excel(fname,header=0)
-else:
-    Contact_Report= pd.read_excel(os.getcwd()+f"\\CONTACT {prot_num}.xlsx",header=0)
+while 1:
+    if (f"CONTACT {prot_num}.csv") in os.listdir('.') and (f"CONTACT {prot_num}.xlsx") not in os.listdir('.'):
+        input(f"Por favor introduzca el reporte de CONTACT {prot_num}.xlsx en el mismo directorio del programa")
+    else:
+        break
+Contact_Report= pd.read_excel(os.getcwd()+f"\\CONTACT {prot_num}.xlsx",header=0)
 SFR= pd.read_excel(filename, sheet_name='Site',header=0)
 Contact_Report= Contact_Report.loc[(Contact_Report["Site #"] == Numero_de_sitio)]
 Contact_Report=Contact_Report[['Role','First Name', 'Last Name', 'Start Date','End Date']]
@@ -543,11 +532,11 @@ dp = SFR.loc[(SFR["Ref Model ID"] == "05.02.11") & (~(SFR["Document Name"]).isna
 lista_pi_y_subi = [(investigator.last_name, investigator.name, pd.Timestamp(investigator.start_date), investigator.end_date)  for investigator in Sitio.Site_members if (investigator.role == 'Principal Investigator' or  investigator.role == 'Sub-Investigator')]
 
 for investigator in lista_pi_y_subi:    
-    if (investigator[3]!= "Present") and  (pd.Timestamp ("2019-01-01") <= investigator[3]):
-        if dp.loc[cv["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].empty:
+    if (investigator[3] == "Present") or  (pd.Timestamp ("2019-01-01") >= investigator[3]):
+        if dp.loc[dp["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].empty:
             add_to_excel(0,"05.02.11", "N", f"Missing Data Privacy Form for {investigator[0]}, {investigator[1]}", "Y", "Collect from site", f"{investigator[0]}, {investigator[1]}")
         else:
-            indice = dp.loc[cv["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].index.values[0]
+            indice = dp.loc[dp["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].index.values[0]
             add_to_excel(indice,(dp["Ref Model ID"][indice]), "Y", f"Data Privacy for {investigator[0]}, {investigator[1]}", "N")
 
 #%%
@@ -577,7 +566,7 @@ for investigator in lista_pi_y_subi:
         if inv_fdf.loc[inv_fdf["Version"] == "Receptos"].empty:
             add_to_excel(0,"05.02.10", "N", f"Missing Receptos FDF for {investigator[0]}, {investigator[1]}", "Collect from Site")
         else:
-            indice = inv_fdf.loc[ inv_fdf.loc[inv_fdf["Version"] == "Receptos"]].index.values[0]
+            indice = inv_fdf.loc[inv_fdf["Version"] == "Receptos"].index.values[0]
             add_to_excel(indice,"05.02.10","Y", f"Receptos FDF for {investigator[0]}, {investigator[1]}", "N")
     if investigator[2]< pd.Timestamp("2020-01-01") and ((investigator[3]=="Present") or (investigator[3] > pd.Timestamp("2016-03-01"))):
         if inv_fdf.loc[inv_fdf["Version"] == "Celgene"].empty:
