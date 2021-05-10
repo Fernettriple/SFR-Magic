@@ -748,12 +748,29 @@ SFR['Document date']=pd.to_datetime(SFR['Document date'])
 SFR_irb = SFR.loc[(SFR['Ref Model ID'] == '04.01.03') & ~(SFR['Document date'].isna() )]
 if SFR_irb.empty:
     add_to_excel(0, '04.01.03', 'N', f"IRB membership list missing. Please provide an updated version.", "N")
-SFR_irb.sort_values(by='Document date', inplace=True)
-SFR_irb=SFR_irb.tail(1)
-SFR_irb.reset_index(inplace=True)
-if (datetime.datetime.today() - SFR_irb['Document date'][0]) > datetime.timedelta(days=730):
-    add_to_excel(0, '04.01.03', 'N', f"Last IRB membership list is from {SFR_irb['Document date'][0].date()}. Please provide an updated version.", "N")
+else:
+    SFR_irb.sort_values(by='Document date', inplace=True)
+    SFR_irb=SFR_irb.tail(1)
+    SFR_irb.reset_index(inplace=True)
+    if (datetime.datetime.today() - SFR_irb['Document date'][0]) > datetime.timedelta(days=730):
+        add_to_excel(0, '04.01.03', 'N', f"Last IRB membership list is from {SFR_irb['Document date'][0].date()}. Please provide an updated version.", "N")
+#%%
+#SDIL
+SFR= pd.read_excel(filename, sheet_name='Site',header=0)
+SFR['Document date']=pd.to_datetime(SFR['Document date'])
 
+SFR_sdil = SFR.loc[(SFR['Ref Model ID'] == '05.04.02') & ~(SFR['Document date'].isna() )]
+if SFR_sdil.empty:
+    add_to_excel(0, '05.04.02', 'N', f"Missing Source Data Verification Log", "N")
+else:
+    add_to_excel(SFR_sdil.index.values[0], '05.04.02', 'Y', f"Source Data Verification Log.", "Y")
+
+
+
+
+#TODO
+#Diferenciar entre smv y cov (con un input), y local/central irb(con un input tmb)
+#en la parte de los logs, si tiene ip/sujetos pedir las cosas correspondientes, y si no no
 
 #%%
 #mega TODO
