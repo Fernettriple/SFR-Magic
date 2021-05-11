@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # encoding : UTF-8
 #%%
+from copy import Error
 from os import chdir, getcwd
 
 from pandas._libs.tslibs import Timestamp
@@ -21,6 +22,20 @@ pd.options.mode.chained_assignment = None  # default='warn'
 ###
 #TODO VER
 #MENSAJE DE BIENVENIDA, EXPLICAR QUE LOS NOMBRES DE LOS REPORTES TIENEN QUE ESTAR EN MAYUSCULAS Y ESO
+####################################################################################
+################### PROTO MENSAJE ##################################
+#####################################################################
+while 1:
+    try:
+        msg = input("SMV/COV,LIRB/CIRB\n").split(',')
+        visit_type = msg[0].upper()
+        irb = msg[1].upper()
+        if visit_type not in ["SMV","COV"] or irb not in ["LIRB","CIRB"]:
+            raise Error 
+        break
+    except:
+        print("Error, pone bien la info")
+        continue
 #%%
 #Abro el archivo REPORT.xlsx para sacer la info necesaria
 wb = openpyxl.load_workbook('REPORT.xlsx')    
@@ -190,7 +205,7 @@ def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Ac
     ws.cell(Row_num,11).value = Present_in_eTMF
     ws.cell(Row_num,12).value = Comments
     ws.cell(Row_num,13).value = Action_needed
-    if Action_needed=='Y':
+    if Action_needed == 'Y':
         ws.cell(Row_num,14).value=Action[0]
     wb.save(Nombre_de_archivo)
 
@@ -255,7 +270,10 @@ check_and_add('05.04.08','Telephone_Closeout' )
 check_and_add('05.04.05','Training/Booster Visit' )
 
 #%%
-
+#######################################################################################
+############################### IP SHIPMENT  ##########################################
+#######################################################################################
+#TODO poner todo lo que falta en una misma linea asi no es un sida
 #Extraigo informacion de IP SHIPMENT y lo meto en el Sitio. 
 if protocol == "RPC01-3101":
     header = 1
@@ -338,8 +356,16 @@ if Sitio.IP_Recieved != None:
     add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
 else:
     add_to_excel(0,"06.01.04","N","Site never had IP. Shipping documentation, IP temperature log, IP accountability logs, etc are not applicable","N")
-    
-    
+#%%
+#################################################################################################################################
+################ LOGS ###########################################################################################################
+################################################################################################################################
+
+if visit_type == "SMV":
+    msg = "Updated DOA, subject log (will need it even if screening failed), Updated IP accountability and Protocol Deviation log (if applicable)  and updated visit log."
+else:
+    msg = "Final DOA, subject log (will need it even if screening failed), Final IP accountability log and Protocol Deviation log (if applicable) , Final visit log with PI signature"
+add_to_excel(0,'05.02.18','N',msg,'Y','Collect from site')
     
 #%%
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
@@ -738,22 +764,23 @@ if pa_applicable:
         add_to_excel(index,code, "N", f"Missing PA v{pas} Signature Page", "Y", "Collect from site")
 #%%
 #Pequeño IRB reminder
-msg = f"Please check that IRB approvals for PA {', '.join(irb_pa_approvals)} and IB {', '.join(irb_ib_approvals)} are present."
-add_to_excel(0,"04.01.02", "N",msg, "Y", "Check")
-#%%
-#IRB membership list
-SFR= pd.read_excel(filename, sheet_name='Site',header=0)
-SFR['Document date']=pd.to_datetime(SFR['Document date'])
+if irb == "LIRB":
+    msg = f"Please check that IRB approvals for PA {', '.join(irb_pa_approvals)} and IB {', '.join(irb_ib_approvals)} are present."
+    add_to_excel(0,"04.01.02", "N",msg, "Y", "Check")
+    #%%
+    #IRB membership list
+    SFR= pd.read_excel(filename, sheet_name='Site',header=0)
+    SFR['Document date']=pd.to_datetime(SFR['Document date'])
 
-SFR_irb = SFR.loc[(SFR['Ref Model ID'] == '04.01.03') & ~(SFR['Document date'].isna() )]
-if SFR_irb.empty:
-    add_to_excel(0, '04.01.03', 'N', f"IRB membership list missing. Please provide an updated version.", "N")
-else:
-    SFR_irb.sort_values(by='Document date', inplace=True)
-    SFR_irb=SFR_irb.tail(1)
-    SFR_irb.reset_index(inplace=True)
-    if (datetime.datetime.today() - SFR_irb['Document date'][0]) > datetime.timedelta(days=730):
-        add_to_excel(0, '04.01.03', 'N', f"Last IRB membership list is from {SFR_irb['Document date'][0].date()}. Please provide an updated version.", "N")
+    SFR_irb = SFR.loc[(SFR['Ref Model ID'] == '04.01.03') & ~(SFR['Document date'].isna() )]
+    if SFR_irb.empty:
+        add_to_excel(0, '04.01.03', 'N', f"IRB membership list missing. Please provide an updated version.", "N")
+    else:
+        SFR_irb.sort_values(by='Document date', inplace=True)
+        SFR_irb=SFR_irb.tail(1)
+        SFR_irb.reset_index(inplace=True)
+        if (datetime.datetime.today() - SFR_irb['Document date'][0]) > datetime.timedelta(days=730):
+            add_to_excel(0, '04.01.03', 'N', f"Last IRB membership list is from {SFR_irb['Document date'][0].date()}. Please provide an updated version.", "N")
 #%%
 #SDIL
 SFR= pd.read_excel(filename, sheet_name='Site',header=0)
