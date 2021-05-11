@@ -43,7 +43,7 @@ ws=wb['Report']
 
 #Extraigo el numero del sitio y el protocolo asi despues hago magia
 Numero_de_sitio=int(ws["M2"].value)
-Nombre_de_archivo=str(Numero_de_sitio)+' COV Site File Review.xlsx'
+Nombre_de_archivo=f'{str(Numero_de_sitio)} {visit_type} Site File Review.xlsx'
 protocol = ws["K2"].value
 
 #Esto me permite convertir la wea a .xlsx. lo saque de StackOverflow (NO CONSERVA H-LINKS)
