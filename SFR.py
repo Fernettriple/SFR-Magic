@@ -251,7 +251,7 @@ def add_visit_from_report(Ref_ID, visit_date):
                 SFR.drop(index,inplace=True)
                 add_to_excel(index,Ref_ID,'Y',f"{(subtipo_de_documento)} from {(visit_date.date())} visit",'N')
     if Letter_Types!=[]:
-        add_to_excel(0,Ref_ID,'N',f'{Letter_Types} missing from {(visit_date.date())} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+        add_to_excel(0,Ref_ID,'N',f'{",".join(Letter_Types)} missing from {(visit_date.date())} visit','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
 
 def check_and_add(code, atribute):
     '''Esta Funcion agarra un Ref ID y se fija si en el objeto Sitio tengo un tipo de visita que corresponda a ese ID. Si esta, ejecuta add_visit_from_report'''
@@ -441,6 +441,11 @@ for nombres,apellidos,funcion,inicio,fin in zip(Names,Last_names,Roles,Starting_
 
 Sitio.Site_members=Site_Members
 #%%
+###############################################################################
+################################# TRAININGS ###################################
+###############################################################################
+
+#TODO preguntar trainings, rave y iata del doa
 #Una vez que tengo la informacion guardada la uso para que haga cosas
 
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -763,6 +768,10 @@ if pa_applicable:
     for pas in pa_applicable:
         add_to_excel(index,code, "N", f"Missing PA v{pas} Signature Page", "Y", "Collect from site")
 #%%
+##############################################################################################################
+####################################### IRB ##################################################################
+##############################################################################################################
+#TODO irb term notification
 #Pequeño IRB reminder
 if irb == "LIRB":
     msg = f"Please check that IRB approvals for PA {', '.join(irb_pa_approvals)} and IB {', '.join(irb_ib_approvals)} are present."
