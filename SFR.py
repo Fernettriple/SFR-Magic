@@ -362,10 +362,10 @@ else:
 ################################################################################################################################
 
 if visit_type == "SMV":
-    msg = "Updated DOA, subject log (will need it even if screening failed), Updated IP accountability and Protocol Deviation log (if applicable)  and updated visit log."
+    logs = "Updated DOA, subject log (will need it even if screening failed), Updated IP accountability and Protocol Deviation log (if applicable)  and updated visit log."
 else:
-    msg = "Final DOA, subject log (will need it even if screening failed), Final IP accountability log and Protocol Deviation log (if applicable) , Final visit log with PI signature"
-add_to_excel(0,'05.02.18','N',msg,'Y','Collect from site')
+    logs = "Final DOA, subject log (will need it even if screening failed), Final IP accountability log and Protocol Deviation log (if applicable) , Final visit log with PI signature"
+add_to_excel(0,'05.02.18','N',logs,'Y','Collect from site')
     
 #%%
 #usar un reporte de CTMS para predecir el study team (PIs, SubIs).
