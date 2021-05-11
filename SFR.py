@@ -281,7 +281,7 @@ else:
     header = 2
     
 
-IP_SHIPMENT= pd.read_excel((f'{prot_num} shipment'+'.xlsx'), sheet_name='Sheet',header=header)
+IP_SHIPMENT= pd.read_excel((f'{prot_num} shipment.xlsx'), sheet_name='Sheet',header=header)
 
 #Reduzco a mi sitio y a los envios recibidos
 IP_SHIPMENT=IP_SHIPMENT.loc[IP_SHIPMENT['Shipment Status']=='Received']
@@ -301,10 +301,11 @@ else:
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
 if Sitio.IP_Recieved != None:
     for shipment in Sitio.IP_Recieved:
+        #TODO revisar bien todos los subtypes y agregar "PACKAGING ORDER"
         Shipment_types=['Packing order','Shipment confirmation','Acknowledgement of Receipt']
         Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
         for documents in Shipment_types:
-            if Bacon.index[Bacon['Document Name'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
+            if Bacon.loc[Bacon['Document Name'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
                 spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
                 Shipment_types.remove(documents)
                 if documents=='Acknowledgement':
@@ -856,7 +857,9 @@ SFR_FDA=SFR_FDA.tail(1)
 SFR_FDA.reset_index(inplace=True)
 if Sitio.Cerrado == True:
     if hasattr(Sitio,'Site_Visit_Closeout'):
-        if (datetime.datetime.strptime(Sitio.Site_Visit_Closeout[0], '%d-%b-%Y') - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
+        if type(Sitio.Site_Visit_Closeout[0]) == str:
+            Sitio.Site_Visit_Closeout[0] = datetime.datetime.strptime(Sitio.Site_Visit_Closeout[0], '%d-%b-%Y')
+        if (Sitio.Site_Visit_Closeout[0]- SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
             add_to_excel(SFR_FDA['index'][0], '05.02.08', 'N', f"Last FDA1572 is from {SFR_FDA['Document date'][0].date()} but site had its Site Visit Closeout in {Sitio.Site_Visit_Closeout[0]}. Please check if this is the latest one applicable",'N')
     else:
         if (datetime.datetime.strptime(Sitio.Telephone_Closeout[0], '%d-%b-%Y') - SFR_FDA['Document date'][0]) > datetime.timedelta(days=365):
