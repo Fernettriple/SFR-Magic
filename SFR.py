@@ -790,7 +790,7 @@ SFR_sdil = SFR.loc[(SFR['Ref Model ID'] == '05.04.02') & ~(SFR['Document date'].
 if SFR_sdil.empty:
     add_to_excel(0, '05.04.02', 'N', f"Missing Source Data Verification Log", "N")
 else:
-    add_to_excel(SFR_sdil.index.values[0], '05.04.02', 'Y', f"Source Data Verification Log.", "Y")
+    add_to_excel(SFR_sdil.index.values[0], '05.04.02', 'Y', f"Source Data Verification Log.", "N")
 
 
 
