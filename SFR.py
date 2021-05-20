@@ -306,7 +306,7 @@ if Sitio.IP_Recieved != None:
         Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
         for documents in Shipment_types:
             if Bacon.loc[Bacon['Document Name'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
-                spam=Bacon.index[Bacon['Document Name'].str.contains(documents)]
+                spam=Bacon.index[Bacon['Ref Model Subtype'].str.contains(documents, regex=True, flags=re.IGNORECASE)]
                 Shipment_types.remove(documents)
                 if documents=='Acknowledgement':
                     add_to_excel(spam[0],'06.01.04','Y',"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
