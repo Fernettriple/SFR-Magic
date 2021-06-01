@@ -42,9 +42,9 @@ wb = openpyxl.load_workbook('REPORT.xlsx')
 ws=wb['Report']
 
 #Extraigo el numero del sitio y el protocolo asi despues hago magia
-Numero_de_sitio=int(ws["M2"].value)
-Nombre_de_archivo=f'{str(Numero_de_sitio)} {visit_type} Site File Review.xlsx'
 protocol = ws["K2"].value
+Numero_de_sitio=int(ws["M2"].value)
+Nombre_de_archivo=f'{str(protocol)} - {str(Numero_de_sitio)} {visit_type} Site File Review.xlsx'
 
 #Esto me permite convertir la wea a .xlsx. lo saque de StackOverflow (NO CONSERVA H-LINKS)
 #Hago lo mismo para los dos reportes de IP
@@ -564,7 +564,8 @@ dp = SFR.loc[(SFR["Ref Model ID"] == "05.02.11") & (~(SFR["Document Name"]).isna
 lista_pi_y_subi = [(investigator.last_name, investigator.name, pd.Timestamp(investigator.start_date), investigator.end_date)  for investigator in Sitio.Site_members if (investigator.role == 'Principal Investigator' or  investigator.role == 'Sub-Investigator')]
 
 for investigator in lista_pi_y_subi:    
-    if (investigator[3] == "Present") or  (pd.Timestamp ("2019-01-01") >= investigator[3]):
+    #Si todavia esta en funciones, o termino despues del 1Jan2019 aplica, si no no.
+    if (investigator[4] == "Present") or  (investigator[2] >= pd.Timestamp ("2019-01-01")):
         if dp.loc[dp["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].empty:
             add_to_excel(0,"05.02.11", "N", f"Missing Data Privacy Form for {investigator[0]}, {investigator[1]}", "Y", "Collect from site", f"{investigator[0]}, {investigator[1]}")
         else:
