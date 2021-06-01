@@ -302,8 +302,8 @@ SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
 if Sitio.IP_Recieved != None:
     for shipment in Sitio.IP_Recieved:
         #TODO reescribir topdo para que de una lista mejor expresada. onda una sola string por cada subtype
-        Shipment_types=['Packing order','Shipment confirmation','Acknowledgement of Receipt']
-        Bacon=SFR_test.loc[SFR_test['Ref Model Subtype'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+        Shipment_types=['Packaging Order','Shipment Confirmation','Acknowledgement of Receipt']
+        Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
         for documents in Shipment_types:
             if Bacon.loc[Bacon['Ref Model Subtype'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
                 spam=Bacon.index[Bacon['Ref Model Subtype'].str.contains(documents, regex=True, flags=re.IGNORECASE)]
@@ -565,7 +565,7 @@ lista_pi_y_subi = [(investigator.last_name, investigator.name, pd.Timestamp(inve
 
 for investigator in lista_pi_y_subi:    
     #Si todavia esta en funciones, o termino despues del 1Jan2019 aplica, si no no.
-    if (investigator[4] == "Present") or  (investigator[2] >= pd.Timestamp ("2019-01-01")):
+    if (investigator[3] == "Present") or  (investigator[2] >= pd.Timestamp ("2019-01-01")):
         if dp.loc[dp["Document Name"].str.contains(investigator[0],regex=True,flags=re.IGNORECASE)].empty:
             add_to_excel(0,"05.02.11", "N", f"Missing Data Privacy Form for {investigator[0]}, {investigator[1]}", "Y", "Collect from site", f"{investigator[0]}, {investigator[1]}")
         else:
