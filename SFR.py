@@ -299,6 +299,12 @@ else:
 
 #Ahora busco en SFR si estan los IP shipments
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
+
+#Inicializo estas listas para contabilizar lo q tengo
+
+filed_packaging_list =[]
+filed_confirmation_list = []
+
 if Sitio.IP_Recieved != None:
     for shipment in Sitio.IP_Recieved:
         #TODO reescribir topdo para que de una lista mejor expresada. onda una sola string por cada subtype
@@ -308,23 +314,26 @@ if Sitio.IP_Recieved != None:
             if Bacon.loc[Bacon['Ref Model Subtype'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
                 spam=Bacon.index[Bacon['Ref Model Subtype'].str.contains(documents, regex=True, flags=re.IGNORECASE)]
                 Shipment_types.remove(documents)
-                if documents=='Acknowledgement':
-                    add_to_excel(spam[0],'06.01.04','N',"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
-                else:
-                    try:
+                try:
+                    if documents=='Acknowledgement of Receipt':
+                        add_to_excel(spam[0],'06.01.04','N',"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
+                    elif documents == 'Packaging Order':
+                        filed_packaging_list.append((shipment))
+                    elif documents == 'Shipment Confirmation':
+                        filed_confirmation_list.append((shipment))
+                    else:                        
                         add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
-                    except IndexError as e:
-                        print(f"Error al procesar {documents} for {shipment} shipping.")
-                        print(f"Motivo: {e}")
-                        pass
-        if Shipment_types!=[]:
-            if 'Acknowledgement of Receipt' in Shipment_types:
-                Shipment_types.remove('Acknowledgement of Receipt')
-            if len(Shipment_types) == 3:
-                msg = 'IP Packing list and IP Shipment confirmation'
-            else:
-                msg = ', '.join(Shipment_types)
-            add_to_excel(0,'06.01.04','N',f'{msg} missing for {shipment} shipment','Y','Collect from Site') #el primer argumento no importa en este caso, ya que se va a a setear igual al fondo
+                except IndexError as e:
+                    print(f"Error al procesar {documents} for {shipment} shipping.")
+                    print(f"Motivo: {e}")
+                    pass
+    #Missing Packing list y confirmation
+    missing_packing_list =  [str(doc) for doc in Sitio.IP_Recieved if doc not in filed_packaging_list]
+    if missing_packing_list:
+        add_to_excel("Al fondo", "06.01.04", "N", f"Missing IP Packaging List (ALMAC Packing lists) for Shipment {', '.join(missing_packing_list)}", "Collect from site")
+    missing_confirmation_list =  [str(doc) for doc in Sitio.IP_Recieved if doc not in filed_confirmation_list]
+    if missing_confirmation_list:
+        add_to_excel("Al fondo", "06.01.04", "N", f"Missing IP Shipment confirmation (The Endpoint email) for Shipment {', '.join(missing_confirmation_list)}", "Collect from site")
     #TODO this needs more work. no funciona bien, me da cualquier cosa
 
     #Extraigo informacion de IP RETURN y lo meto en el Sitio
@@ -353,8 +362,8 @@ if Sitio.IP_Recieved != None:
             add_to_excel(SFR.index[SFR['Ref Model ID'] == '06.01.10'][0],'06.01.10','Y',"No IP was returned",'N')
     #Usando el primer Ip shipment, defino desde cuando necesito los IP temp logs y calibration logs
     
-    add_to_excel(0,'06.04.01','N',f"Please check that the IP temperature logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
-    add_to_excel(0,'06.04.03','N',f"Please check that the calibration logs are present from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+    add_to_excel(0,'06.04.01','N',f"IP temperature logs from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
+    add_to_excel(0,'06.04.03','N',f"Calibration logs from {Sitio.First_IP} to present.",'Y','Collect from site, if applicable')
 else:
     add_to_excel(0,"06.01.04","N","Site never had IP. Shipping documentation, IP temperature log, IP accountability logs, etc are not applicable","N")
 #%%
