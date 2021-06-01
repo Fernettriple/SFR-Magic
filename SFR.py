@@ -301,15 +301,15 @@ else:
 SFR_test=SFR.loc[SFR['Ref Model ID']=='06.01.04']
 if Sitio.IP_Recieved != None:
     for shipment in Sitio.IP_Recieved:
-        #TODO revisar bien todos los subtypes y agregar "PACKAGING ORDER"
+        #TODO reescribir topdo para que de una lista mejor expresada. onda una sola string por cada subtype
         Shipment_types=['Packing order','Shipment confirmation','Acknowledgement of Receipt']
-        Bacon=SFR_test.loc[SFR_test['Document Name'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
+        Bacon=SFR_test.loc[SFR_test['Ref Model Subtype'].str.contains(str(shipment), flags=re.IGNORECASE,na=False)]
         for documents in Shipment_types:
-            if Bacon.loc[Bacon['Document Name'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
+            if Bacon.loc[Bacon['Ref Model Subtype'].str.contains(documents, flags=re.IGNORECASE,na=False, regex=True)].empty==False:
                 spam=Bacon.index[Bacon['Ref Model Subtype'].str.contains(documents, regex=True, flags=re.IGNORECASE)]
                 Shipment_types.remove(documents)
                 if documents=='Acknowledgement':
-                    add_to_excel(spam[0],'06.01.04','Y',"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
+                    add_to_excel(spam[0],'06.01.04','N',"Check if this file is a Packing List, Shipping confirmation or Shipping Request",'N')
                 else:
                     try:
                         add_to_excel(spam[0],'06.01.04','Y',f"{documents} for {shipment} shipping",'N')
