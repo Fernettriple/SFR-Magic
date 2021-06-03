@@ -11,6 +11,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter, column_index_from_string
 import datetime
 import pandas as pd
+from pandas.core.dtypes.missing import isna
 import win32com.client as win32
 import os
 import numpy as np
@@ -178,6 +179,14 @@ for index_Visit_Report,row_Visit_Report in Visit_Report['Visit Type'].iteritems(
     except:
         pass
 #Ahora parseo por el DF del excel
+def read_etmf ():
+    '''
+    Esta funcion lee el archivo donde esta el etmf del sitio y devuelve la df. Su funcion es meramente evitar ducktiping
+    '''
+    return pd.read_excel(filename, sheet_name='Site',header=0)
+
+
+
 
 def add_to_excel(Row_num,Ref_model_ID,Present_in_eTMF,Comments,Action_needed,*Action, **staff):
     '''
@@ -782,7 +791,20 @@ if pa_applicable:
 ##############################################################################################################
 ####################################### IRB ##################################################################
 ##############################################################################################################
+
+
+def check_if_present(code, mensaje):
+    '''
+    Esta funcion toma un codigo de eTMF y despues checkea si hay al menos un documento de este tipo. Si no hay, agrega el mensaje al fondo
+       
+    '''
+    SFR = read_etmf()
+    if SFR.loc[(SFR["Ref Model ID"] == code) & (~SFR["Document Name"].isna())].empty == False:
+        add_to_excel(0, code, 'N', mensaje, "N")
 #TODO irb term notification
+
+check_if_present("04.03.03", "IRB Termination notification(Close out acknowledgement)")
+   
 #Pequeño IRB reminder
 if irb == "LIRB":
     msg = f"Please check that IRB approvals for PA {', '.join(irb_pa_approvals)} and IB {', '.join(irb_ib_approvals)} are present."
